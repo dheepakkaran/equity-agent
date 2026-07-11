@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment variables (SECRETS - never commit!)
+.env
+.env.local
+.env.*.local
+credentials.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data / ML artifacts
+data/
+*.csv
+*.parquet
+*.pkl
+*.joblib
+mlruns/
+mlartifacts/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Alembic (keep migrations, ignore working files)
+alembic/versions/__pycache__/
