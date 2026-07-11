@@ -12,7 +12,7 @@ router = APIRouter()
 @router.get("/{ticker}", response_model=StockResponse)
 async def get_stock(
     ticker: str,
-    days: int = Query(30, ge=1, le=365, description="Trailing days to fetch"),
+    days: int = Query(30, ge=1, le=3650, description="Trailing days to fetch"),
     db: Session = Depends(get_db),
 ):
     """Fetch OHLCV data from Yahoo Finance and persist to Postgres."""
