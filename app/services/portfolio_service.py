@@ -11,9 +11,11 @@ COVER first, then BUY. Simpler than auto-flipping.
 """
 from __future__ import annotations
 
+from datetime import date, datetime, timedelta, timezone
+
 from sqlalchemy.orm import Session
 
-from app.models.portfolio import Portfolio, Position, Trade
+from app.models.portfolio import Portfolio, PortfolioSnapshot, Position, Trade
 from app.models.stock import StockOHLCV
 
 DEFAULT_PORTFOLIO_NAME = "main"
@@ -272,3 +274,65 @@ def build_summary(db: Session, portfolio: Portfolio) -> dict:
         "total_return_pct": total_return_pct,
         "positions": positions_out,
     }
+
+
+def take_snapshot(db: Session, portfolio: Portfolio, on_date: date | None = None) -> PortfolioSnapshot:
+    """Capture current portfolio state as a daily snapshot.
+
+    Idempotent per (portfolio_id, snapshot_date): calling twice on the same
+    day updates the existing row instead of inserting a duplicate.
+    """
+    if on_date is None:
+        on_date = datetime.now(timezone.utc).date()
+
+    summary = build_summary(db, portfolio)
+
+    existing = (
+        db.query(PortfolioSnapshot)
+        .filter(
+            PortfolioSnapshot.portfolio_id == portfolio.id,
+            PortfolioSnapshot.snapshot_date == on_date,
+        )
+        .first()
+    )
+
+    if existing:
+        existing.cash_balance = summary["cash_balance"]
+        existing.positions_market_value = summary["positions_market_value"]
+        existing.total_value = summary["total_value"]
+        existing.total_return_usd = summary["total_return_usd"]
+        existing.total_return_pct = summary["total_return_pct"]
+        existing.open_positions_count = len(summary["positions"])
+        snapshot = existing
+    else:
+        snapshot = PortfolioSnapshot(
+            portfolio_id=portfolio.id,
+            snapshot_date=on_date,
+            cash_balance=summary["cash_balance"],
+            positions_market_value=summary["positions_market_value"],
+            total_value=summary["total_value"],
+            total_return_usd=summary["total_return_usd"],
+            total_return_pct=summary["total_return_pct"],
+            open_positions_count=len(summary["positions"]),
+        )
+        db.add(snapshot)
+
+    db.commit()
+    db.refresh(snapshot)
+    return snapshot
+
+
+def get_history(
+    db: Session, portfolio_id: int, days: int = 30
+) -> list[PortfolioSnapshot]:
+    """Return snapshots from the last `days` days, oldest first (for chart display)."""
+    cutoff = datetime.now(timezone.utc).date() - timedelta(days=days)
+    return (
+        db.query(PortfolioSnapshot)
+        .filter(
+            PortfolioSnapshot.portfolio_id == portfolio_id,
+            PortfolioSnapshot.snapshot_date >= cutoff,
+        )
+        .order_by(PortfolioSnapshot.snapshot_date.asc())
+        .all()
+    )

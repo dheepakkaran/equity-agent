@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -64,3 +64,28 @@ class ExecutionResult(BaseModel):
     trade: TradeOut | None = None
     recommendation_direction: str | None = None
     portfolio_after: PortfolioSummary | None = None
+
+
+class SnapshotOut(BaseModel):
+    id: int
+    snapshot_date: date
+    cash_balance: float
+    positions_market_value: float
+    total_value: float
+    total_return_usd: float
+    total_return_pct: float
+    open_positions_count: int
+
+    class Config:
+        from_attributes = True
+
+
+class HistoryResponse(BaseModel):
+    portfolio_id: int
+    days: int
+    count: int
+    snapshots: list[SnapshotOut]
+    first_value: float | None = None
+    last_value: float | None = None
+    period_return_usd: float | None = None
+    period_return_pct: float | None = None

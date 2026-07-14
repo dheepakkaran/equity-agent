@@ -6,7 +6,9 @@ from app.database import get_db
 from app.models.portfolio import Trade
 from app.schemas.portfolio import (
     ExecutionResult,
+    HistoryResponse,
     PortfolioSummary,
+    SnapshotOut,
     TradeOut,
     TradeRequest,
 )
@@ -14,8 +16,10 @@ from app.services.portfolio_service import (
     PortfolioError,
     build_summary,
     execute_trade,
+    get_history,
     get_or_create_portfolio,
     reset_portfolio,
+    take_snapshot,
 )
 
 router = APIRouter()
@@ -142,6 +146,48 @@ async def execute_recommendation(ticker: str, db: Session = Depends(get_db)):
         trade=TradeOut.model_validate(trade),
         recommendation_direction=direction,
         portfolio_after=PortfolioSummary(**build_summary(db, portfolio)),
+    )
+
+
+@router.post("/snapshot", response_model=SnapshotOut)
+async def snapshot(db: Session = Depends(get_db)):
+    """Capture today's portfolio state as a snapshot.
+
+    Idempotent per day — calling twice on the same day updates the existing row.
+    Call this once a day (via cron / GitHub Action) to build the equity curve.
+    """
+    portfolio = get_or_create_portfolio(db)
+    snap = take_snapshot(db, portfolio)
+    return SnapshotOut.model_validate(snap)
+
+
+@router.get("/history", response_model=HistoryResponse)
+async def history(days: int = 30, db: Session = Depends(get_db)):
+    """Return the last N days of portfolio snapshots (oldest first) for charting."""
+    portfolio = get_or_create_portfolio(db)
+    snaps = get_history(db, portfolio.id, days=days)
+    snapshots = [SnapshotOut.model_validate(s) for s in snaps]
+
+    first_value = snapshots[0].total_value if snapshots else None
+    last_value = snapshots[-1].total_value if snapshots else None
+    period_return_usd = (
+        (last_value - first_value) if (first_value is not None and last_value is not None) else None
+    )
+    period_return_pct = (
+        (period_return_usd / first_value * 100)
+        if (first_value and first_value != 0 and period_return_usd is not None)
+        else None
+    )
+
+    return HistoryResponse(
+        portfolio_id=portfolio.id,
+        days=days,
+        count=len(snapshots),
+        snapshots=snapshots,
+        first_value=first_value,
+        last_value=last_value,
+        period_return_usd=period_return_usd,
+        period_return_pct=period_return_pct,
     )
 
 

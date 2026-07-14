@@ -133,7 +133,7 @@ Multi-agent AI equity research platform: **XGBoost ML brain** + **LangGraph LLM 
 - **Verified 2026-07-14:** AAPL SHORT 2745 @ $315.32 auto-executed via `/portfolio/execute`. Fixed a P&L accounting bug (SHORT liability wasn't offsetting cash proceeds in `total_value`).
 - Multi-ticker bootstrap: `scripts/bootstrap_multi_ticker.py` — ran across 10 tickers (SPY/QQQ/AAPL/MSFT/NVDA/GOOGL/META/TSLA/AMZN/AMD) in ~3.5 min. Result: **9 SHORT, 1 LONG (META)** — exposed the systemic DOWN-bias in the XGBoost model → drove Phase 7 next.
 
-### Phase 7 — XGBoost improvements (uncommitted, 2026-07-14)
+### Phase 7 — XGBoost improvements (committed 2026-07-14)
 
 Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
 
@@ -152,7 +152,19 @@ Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
 - `app/api/features.py`: propagates `atr_14`.
 - `app/agents/coordinator.py`: `FEATURE_KEYS` now includes `atr_14`.
 - `scripts/retrain_all_tickers.py` — retrains all 10 tickers and prints per-ticker accuracy + confusion matrix + predicted direction so the UP/DOWN split is visible at a glance.
-- **Not yet tested end-to-end** — need to retrain all models then re-run bootstrap
+- `scripts/ingest_multi_ticker.py` — ingest 10 years of OHLCV for all tickers.
+- **Bug found + fixed on 2026-07-14:** original `scale_pos_weight = neg/pos` was applied unconditionally. When positives (UP) are the majority (as they are over 10 years of market data), this *downweights* UP and causes an inverted DOWN-bias. Fixed to only apply when positives are actually minority.
+- **Honest result:** across 10 tickers with 10 years of data and full fixes, avg accuracy is ~48-50%. 5-day forward direction from price/volume features alone appears to have a hard ~50% ceiling. This is now documented as a known limitation, not a bug. Real edge comes from the LLM synthesis + news + risk layers, not the ML brain alone.
+
+### Phase 8 — Daily Portfolio Snapshots (uncommitted, 2026-07-14)
+- Alembic migration `b7d8e9f0a1b2_create_portfolio_snapshots.py` — new `portfolio_snapshots` table with `UNIQUE(portfolio_id, snapshot_date)`.
+- Model: `PortfolioSnapshot` in `app/models/portfolio.py` with FK back to `Portfolio`.
+- Service: `take_snapshot(db, portfolio, on_date=None)` — idempotent per day (updates existing row if same-day snapshot exists), and `get_history(db, portfolio_id, days=30)` — chronological list for charting.
+- Endpoints (`app/api/portfolio.py`):
+  - `POST /portfolio/snapshot` — capture today's state
+  - `GET /portfolio/history?days=N` — equity-curve data with period return summary
+- Schemas: `SnapshotOut`, `HistoryResponse` in `app/schemas/portfolio.py`
+- **Not yet migrated** — run `alembic upgrade head` before testing
 
 ---
 
@@ -160,28 +172,25 @@ Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
 
 ### 🔴 IMMEDIATE (next session start here)
 
-**Retrain all 10 models with the new setup, then re-bootstrap to confirm balanced BUY/SHORT split.**
+**Migrate DB + test Phase 8 (snapshots), then commit.**
 
 ```powershell
-# uvicorn should already be running with --reload; if not:
+alembic upgrade head    # creates portfolio_snapshots table
+
+# uvicorn should auto-reload; if not:
 uvicorn app.main:app --reload
 
-# Reset portfolio (clears stale positions from prior bootstrap)
-curl.exe -X POST http://localhost:8000/portfolio/reset
+# Take today's snapshot (idempotent)
+curl.exe -X POST http://localhost:8000/portfolio/snapshot
 
-# Retrain every ticker
-python scripts/retrain_all_tickers.py
-# Expect: mixed UP/DOWN predictions, accuracies >= 50% for most tickers
-
-# Re-run the bootstrap to execute trades with new models
-python scripts/bootstrap_multi_ticker.py
-# Expect: mix of BUY and SHORT (not 9:1 like before)
+# View equity-curve data (empty until multiple days of snapshots exist)
+curl.exe "http://localhost:8000/portfolio/history?days=30"
 ```
 
-If the direction split is balanced and average accuracy improved:
+If green:
 ```powershell
-git add app/services/features.py app/ml/dataset.py app/ml/train.py app/schemas/features.py app/api/features.py app/agents/coordinator.py scripts/retrain_all_tickers.py scripts/bootstrap_multi_ticker.py scripts/check_gemini_quota.py PROGRESS.md README.md
-git commit -m "Phase 7: 5-day target + class balance + ATR feature to fix XGBoost DOWN-bias"
+git add alembic app/models/portfolio.py app/services/portfolio_service.py app/schemas/portfolio.py app/api/portfolio.py PROGRESS.md README.md
+git commit -m "Phase 8: daily portfolio snapshots for equity-curve tracking"
 git push
 ```
 

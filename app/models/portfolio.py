@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -33,6 +34,9 @@ class Portfolio(Base):
 
     positions = relationship("Position", back_populates="portfolio", cascade="all, delete-orphan")
     trades = relationship("Trade", back_populates="portfolio", cascade="all, delete-orphan")
+    snapshots = relationship(
+        "PortfolioSnapshot", back_populates="portfolio", cascade="all, delete-orphan"
+    )
 
 
 class Position(Base):
@@ -73,3 +77,26 @@ class Trade(Base):
     executed_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow, index=True)
 
     portfolio = relationship("Portfolio", back_populates="trades")
+
+
+class PortfolioSnapshot(Base):
+    __tablename__ = "portfolio_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    portfolio_id = Column(Integer, ForeignKey("portfolios.id"), nullable=False, index=True)
+    snapshot_date = Column(Date, nullable=False, index=True)
+    cash_balance = Column(Float, nullable=False)
+    positions_market_value = Column(Float, nullable=False)
+    total_value = Column(Float, nullable=False)
+    total_return_usd = Column(Float, nullable=False)
+    total_return_pct = Column(Float, nullable=False)
+    open_positions_count = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+
+    portfolio = relationship("Portfolio", back_populates="snapshots")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "portfolio_id", "snapshot_date", name="uq_portfolio_snapshot_date"
+        ),
+    )
