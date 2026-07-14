@@ -190,11 +190,12 @@ Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
 - **Zero deployment needed** — GitHub Actions runners connect directly to Neon DB. Laptop + uvicorn no longer required for daily operations.
 - **Verified 2026-07-14** — first manual run succeeded in 1m 3s. All 8 steps green.
 
-### Phase 11 — Hugging Face Spaces deployment (uncommitted, 2026-07-14)
-- `Dockerfile` — Python 3.12 slim base, installs libpq for psycopg2, runs `alembic upgrade head` then uvicorn on `${PORT}` (default 7860 for HF Spaces).
-- `README.md` — added HF Spaces YAML frontmatter at the top: `sdk: docker`, `app_port: 7860`, title/colors/emoji.
-- `.gitignore` — added `!models/*.joblib` exception so trained XGBoost models (small, ~50KB each) ship with the container. Container doesn't need to retrain on cold start.
-- **Setup steps** (see instructions below).
+### Phase 11 — Deployment (uncommitted, 2026-07-14)
+- **HF Spaces Docker path abandoned** — as of 2026 HF requires PRO subscription or billed account for Docker Spaces (Gradio/Static SDKs remain free). Switched to Render.com free tier: Docker-native, no credit card, GitHub auto-deploy.
+- `Dockerfile` — Python 3.12 slim + libpq, runs `alembic upgrade head` then uvicorn with `--proxy-headers --forwarded-allow-ips '*'` on `${PORT}`. `${PORT}` shell substitution works both locally (defaults to 7860) and on Render (Render injects PORT env var).
+- `README.md` — HF Spaces YAML frontmatter kept at top of README (Render ignores it, keeps door open if HF ever unblocks free Docker).
+- `.gitignore` — `!models/*.joblib` exception so trained XGBoost models (~290KB each) ship with the container. No retrain needed on cold start.
+- **Setup steps for Render** (see instructions below).
 
 ---
 
@@ -202,35 +203,24 @@ Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
 
 ### 🔴 IMMEDIATE (next session start here)
 
-**Deploy to Hugging Face Spaces.**
+**Deploy to Render.com.**
 
-**Step 1** — Commit the deployment artifacts:
-```powershell
-git add Dockerfile .gitignore models README.md PROGRESS.md
-git commit -m "Phase 11 Docker + HF Space metadata for deployment"
-git push
-```
+1. Sign up at https://render.com — GitHub OAuth, no credit card.
+2. Dashboard → **New +** → **Web Service** → connect the `equity-agent` repo.
+3. Configure:
+   - Name: `equity-agent`
+   - Region: closest (Oregon / Frankfurt / Singapore)
+   - Branch: `main`
+   - Runtime: **Docker** (auto-detected from Dockerfile)
+   - Instance type: **Free**
+   - Health check path: `/health`
+4. Environment (add two secrets):
+   - `DATABASE_URL` = value from `.env`
+   - `GEMINI_API_KEY` = value from `.env`
+5. Click **Create Web Service**. First build takes ~5-8 min.
+6. When status = **Live**, the URL `https://equity-agent-xxxx.onrender.com/docs` opens Swagger.
 
-**Step 2** — Create the Space:
-1. Browser → https://huggingface.co/new-space
-2. Owner: your HF username · Space name: `equity-agent`
-3. License: MIT · SDK: **Docker** (blank template) · Hardware: CPU basic (free)
-4. Visibility: public
-5. Create Space
-
-**Step 3** — Add Space secrets (Settings → Variables and secrets):
-- `DATABASE_URL` — copy from `.env`
-- `GEMINI_API_KEY` — copy from `.env`
-
-**Step 4** — Link the HF Space git remote and push:
-```powershell
-# HF username = your HF handle from step 2
-git remote add hf https://huggingface.co/spaces/<your-username>/equity-agent
-git push hf main
-# You'll be prompted for HF username + a write-scoped access token (HF settings → Access tokens)
-```
-
-**Step 5** — Watch the build: on the Space page, "Logs" tab shows the Docker build. First build takes ~3-5 min. When "Running" appears, hit `https://<your-username>-equity-agent.hf.space/docs`.
+Free-tier cold start: ~30s after 15 min idle. Warm it up before demos.
 
 ---
 

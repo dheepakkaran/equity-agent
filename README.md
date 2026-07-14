@@ -307,7 +307,7 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 - [x] Daily portfolio snapshots (equity curve + period return over any window)
 - [x] Stop-loss / take-profit auto-enforcement (autonomous position closure)
 - [x] Daily automation via GitHub Actions cron (ingest + enforce + snapshot, no server required)
-- [x] Hugging Face Spaces deployment (Dockerfile + Space metadata)
+- [x] Deployment via Docker + Render.com (Dockerfile ready, `${PORT}` respected, `--proxy-headers` set)
 - [ ] Langfuse LLM observability
 - [ ] Retraining + drift monitoring (Evidently)
 - [ ] pgvector for news RAG

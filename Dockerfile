@@ -21,7 +21,9 @@ ENV PORT=7860 \
     APP_ENV=production \
     PYTHONUNBUFFERED=1
 
-# Alembic migrations are idempotent; running on start keeps schema in sync
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+# Alembic migrations are idempotent; running on start keeps schema in sync.
+# --proxy-headers + --forwarded-allow-ips make client IP + scheme correct behind
+# Render's / HF's reverse proxy.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips '*'"]
 
 EXPOSE 7860
