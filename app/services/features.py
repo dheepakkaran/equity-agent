@@ -54,6 +54,29 @@ def returns(series: pd.Series, periods: tuple[int, ...] = (1, 5, 20)) -> pd.Data
     return pd.DataFrame({f"ret_{p}d": series.pct_change(periods=p) for p in periods})
 
 
+def atr(
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    window: int = 14,
+) -> pd.Series:
+    """Average True Range (Wilder smoothing).
+
+    TR = max(H - L, |H - C_prev|, |L - C_prev|).
+    A real volatility measure — captures gaps, unlike return-based proxies.
+    """
+    prev_close = close.shift(1)
+    tr = pd.concat(
+        [
+            high - low,
+            (high - prev_close).abs(),
+            (low - prev_close).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
+    return tr.ewm(alpha=1 / window, adjust=False, min_periods=window).mean()
+
+
 def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
     """Compute the full feature set from an OHLCV DataFrame.
 
@@ -72,6 +95,7 @@ def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
     out = pd.concat([out, bollinger_bands(close)], axis=1)
     out = pd.concat([out, returns(close)], axis=1)
 
+    out["atr_14"] = atr(out["high"], out["low"], close, 14)
     out["volume_sma_20"] = sma(out["volume"].astype(float), 20)
 
     return out

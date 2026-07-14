@@ -1,8 +1,12 @@
 """Build ML datasets from persisted OHLCV.
 
-Load ticker rows, compute features, build (X, y) where y is next-day
-direction (1 if next close > today close, else 0). Drop rows with NaN
-features so the earliest ~50 warm-up days aren't fed to the model.
+Target: 5-day direction — 1 if close[t+5] > close[t], else 0. Using a
+5-day horizon instead of 1-day dramatically reduces noise (daily direction
+is close to random walk; multi-day trends carry real signal).
+
+Feature set drops the redundant `bb_mid` (was collinear with sma_20 in
+practice — zero XGBoost importance) and adds `atr_14` (real Wilder ATR,
+captures volatility including gaps, unlike |ret_20d|/20 proxies).
 """
 from __future__ import annotations
 
@@ -11,6 +15,8 @@ from sqlalchemy.orm import Session
 
 from app.models.stock import StockOHLCV
 from app.services.features import compute_all_features
+
+TARGET_HORIZON = 5
 
 FEATURE_COLUMNS: list[str] = [
     "sma_20",
@@ -22,11 +28,11 @@ FEATURE_COLUMNS: list[str] = [
     "macd_signal",
     "macd_hist",
     "bb_upper",
-    "bb_mid",
     "bb_lower",
     "ret_1d",
     "ret_5d",
     "ret_20d",
+    "atr_14",
     "volume_sma_20",
 ]
 
@@ -60,15 +66,17 @@ def load_ohlcv_frame(ticker: str, db: Session) -> pd.DataFrame:
     )
 
 
-def build_supervised_frame(df: pd.DataFrame) -> pd.DataFrame:
-    """Return feature dataframe with next-day direction label attached.
+def build_supervised_frame(df: pd.DataFrame, horizon: int = TARGET_HORIZON) -> pd.DataFrame:
+    """Return feature dataframe with N-day direction label attached.
 
-    Adds `target` column: 1 if next-day close > today's close, else 0.
-    Drops the final row (no next-day label) and any row with NaN features.
+    Adds `target` column: 1 if close[t+horizon] > close[t], else 0.
+    Drops the final `horizon` rows (no label available) and rows with NaN features.
     """
     features_df = compute_all_features(df)
-    features_df["target"] = (features_df["close"].shift(-1) > features_df["close"]).astype(int)
-    features_df = features_df.iloc[:-1]  # drop last row (no label)
+    features_df["target"] = (
+        features_df["close"].shift(-horizon) > features_df["close"]
+    ).astype(int)
+    features_df = features_df.iloc[:-horizon]  # drop tail without labels
     features_df = features_df.dropna(subset=FEATURE_COLUMNS)
     return features_df.reset_index(drop=True)
 

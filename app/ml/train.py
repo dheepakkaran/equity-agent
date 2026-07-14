@@ -69,6 +69,20 @@ def train_ticker(
     X_test = test_df[FEATURE_COLUMNS]
     y_test = test_df["target"]
 
+    # Compute class balance to counteract label skew.
+    # scale_pos_weight upweights the minority class. Only apply when positives
+    # (UP labels) are actually the minority — over 10 years of daily data the
+    # market usually trends up, so positives are majority and naively applying
+    # neg/pos would *downweight* UP and cause a systemic DOWN-bias.
+    pos_count = int((y_train == 1).sum())
+    neg_count = int((y_train == 0).sum())
+    if pos_count == 0:
+        scale_pos_weight = 1.0
+    elif pos_count < neg_count:
+        scale_pos_weight = neg_count / pos_count  # upweight rare UP class
+    else:
+        scale_pos_weight = 1.0  # positives already majority, leave alone
+
     mlflow.set_experiment("equity-agent-direction")
 
     with mlflow.start_run(run_name=f"{ticker_upper}_{datetime.utcnow():%Y%m%d_%H%M%S}"):
@@ -81,6 +95,9 @@ def train_ticker(
                 "test_size": test_size,
                 "train_rows": len(X_train),
                 "test_rows": len(X_test),
+                "train_pos_count": pos_count,
+                "train_neg_count": neg_count,
+                "scale_pos_weight": round(scale_pos_weight, 3),
                 "features": ",".join(FEATURE_COLUMNS),
             }
         )
@@ -93,6 +110,7 @@ def train_ticker(
             eval_metric="logloss",
             use_label_encoder=False,
             random_state=42,
+            scale_pos_weight=scale_pos_weight,
         )
         model.fit(X_train, y_train)
 

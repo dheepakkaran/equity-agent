@@ -84,6 +84,7 @@ async def get_stock_features(
             ret_1d=_nan_to_none(row.get("ret_1d")),
             ret_5d=_nan_to_none(row.get("ret_5d")),
             ret_20d=_nan_to_none(row.get("ret_20d")),
+            atr_14=_nan_to_none(row.get("atr_14")),
             volume_sma_20=_nan_to_none(row.get("volume_sma_20")),
         )
         for _, row in features_df.iterrows()

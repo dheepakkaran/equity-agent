@@ -26,7 +26,8 @@ FEATURE_KEYS = [
     "sma_20", "sma_50", "ema_12", "ema_26", "rsi_14",
     "macd", "macd_signal", "macd_hist",
     "bb_upper", "bb_mid", "bb_lower",
-    "ret_1d", "ret_5d", "ret_20d", "volume_sma_20",
+    "ret_1d", "ret_5d", "ret_20d",
+    "atr_14", "volume_sma_20",
 ]
 
 

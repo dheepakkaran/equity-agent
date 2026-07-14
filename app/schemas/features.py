@@ -20,6 +20,7 @@ class FeatureRow(BaseModel):
     ret_1d: float | None = None
     ret_5d: float | None = None
     ret_20d: float | None = None
+    atr_14: float | None = None
     volume_sma_20: float | None = None
 
 
