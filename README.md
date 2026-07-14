@@ -277,6 +277,8 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 | POST | `/portfolio/trade` | Manual BUY/SELL/SHORT/COVER at latest close |
 | POST | `/portfolio/execute/{ticker}` | Auto-execute the agent's recommended trade |
 | GET | `/portfolio/trades` | Trade history (optionally filter by ticker) |
+| POST | `/portfolio/snapshot` | Capture today's portfolio state (idempotent per day) |
+| GET | `/portfolio/history?days=N` | Equity-curve data + period return |
 
 ## Roadmap
 
@@ -287,6 +289,7 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 - [x] News agent (yfinance headlines + Gemini sentiment)
 - [x] Paper trading portfolio ($1M virtual capital, auto-execute agent recommendations)
 - [x] Model improvements (5-day target, class balance via `scale_pos_weight`, ATR feature, drop `bb_mid`)
+- [x] Daily portfolio snapshots (equity curve + period return over any window)
 - [ ] Langfuse LLM observability
 - [ ] Retraining + drift monitoring (Evidently)
 - [ ] pgvector for news RAG
