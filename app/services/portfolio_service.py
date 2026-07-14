@@ -322,6 +322,82 @@ def take_snapshot(db: Session, portfolio: Portfolio, on_date: date | None = None
     return snapshot
 
 
+def enforce_stops(db: Session, portfolio: Portfolio) -> list[dict]:
+    """Scan open positions and close any where price crossed stop_loss or take_profit.
+
+    LONG:
+        current <= stop_loss   → SELL (loss capped)
+        current >= take_profit → SELL (profit taken)
+    SHORT:
+        current >= stop_loss   → COVER (loss capped)
+        current <= take_profit → COVER (profit taken)
+
+    Returns list of action dicts describing each enforcement event. Positions
+    without both stop_loss and take_profit set are skipped (no reference for
+    enforcement).
+    """
+    actions: list[dict] = []
+
+    # Materialize positions list because we may delete during iteration
+    positions_snapshot = list(portfolio.positions)
+
+    for pos in positions_snapshot:
+        current = _latest_close(db, pos.ticker)
+        if current is None:
+            continue
+
+        trigger: str | None = None  # "stop_loss" | "take_profit"
+        action: str | None = None
+
+        if pos.side == "LONG":
+            if pos.stop_loss is not None and current <= pos.stop_loss:
+                trigger, action = "stop_loss", "SELL"
+            elif pos.take_profit is not None and current >= pos.take_profit:
+                trigger, action = "take_profit", "SELL"
+        elif pos.side == "SHORT":
+            if pos.stop_loss is not None and current >= pos.stop_loss:
+                trigger, action = "stop_loss", "COVER"
+            elif pos.take_profit is not None and current <= pos.take_profit:
+                trigger, action = "take_profit", "COVER"
+
+        if trigger is None:
+            continue
+
+        try:
+            trade = execute_trade(
+                db,
+                portfolio_id=portfolio.id,
+                ticker=pos.ticker,
+                action=action,
+                shares=pos.shares,
+                price=current,
+                source=trigger,
+            )
+            actions.append(
+                {
+                    "ticker": pos.ticker,
+                    "side_closed": pos.side,
+                    "action": action,
+                    "trigger": trigger,
+                    "shares": trade.shares,
+                    "price": trade.price,
+                    "realized_pnl": trade.realized_pnl,
+                }
+            )
+        except PortfolioError as exc:
+            actions.append(
+                {
+                    "ticker": pos.ticker,
+                    "side_closed": pos.side,
+                    "action": action,
+                    "trigger": trigger,
+                    "error": str(exc),
+                }
+            )
+
+    return actions
+
+
 def get_history(
     db: Session, portfolio_id: int, days: int = 30
 ) -> list[PortfolioSnapshot]:

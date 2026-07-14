@@ -5,6 +5,8 @@ from app.agents.coordinator import run_analysis
 from app.database import get_db
 from app.models.portfolio import Trade
 from app.schemas.portfolio import (
+    EnforcementAction,
+    EnforcementResult,
     ExecutionResult,
     HistoryResponse,
     PortfolioSummary,
@@ -15,6 +17,7 @@ from app.schemas.portfolio import (
 from app.services.portfolio_service import (
     PortfolioError,
     build_summary,
+    enforce_stops,
     execute_trade,
     get_history,
     get_or_create_portfolio,
@@ -145,6 +148,23 @@ async def execute_recommendation(ticker: str, db: Session = Depends(get_db)):
         reason=f"Executed {action} {shares} {ticker.upper()} @ {close:.2f} per agent recommendation.",
         trade=TradeOut.model_validate(trade),
         recommendation_direction=direction,
+        portfolio_after=PortfolioSummary(**build_summary(db, portfolio)),
+    )
+
+
+@router.post("/enforce-stops", response_model=EnforcementResult)
+async def enforce(db: Session = Depends(get_db)):
+    """Scan open positions, close any where price crossed stop_loss or take_profit.
+
+    Idempotent: positions already closed on a previous call are skipped.
+    Call daily (via cron) after market close, or on-demand from Swagger.
+    """
+    portfolio = get_or_create_portfolio(db)
+    actions = enforce_stops(db, portfolio)
+    db.refresh(portfolio)
+    return EnforcementResult(
+        triggered=sum(1 for a in actions if not a.get("error")),
+        actions=[EnforcementAction(**a) for a in actions],
         portfolio_after=PortfolioSummary(**build_summary(db, portfolio)),
     )
 

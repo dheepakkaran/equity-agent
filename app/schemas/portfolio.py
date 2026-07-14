@@ -89,3 +89,20 @@ class HistoryResponse(BaseModel):
     last_value: float | None = None
     period_return_usd: float | None = None
     period_return_pct: float | None = None
+
+
+class EnforcementAction(BaseModel):
+    ticker: str
+    side_closed: str
+    action: str
+    trigger: str
+    shares: int | None = None
+    price: float | None = None
+    realized_pnl: float | None = None
+    error: str | None = None
+
+
+class EnforcementResult(BaseModel):
+    triggered: int
+    actions: list[EnforcementAction]
+    portfolio_after: PortfolioSummary

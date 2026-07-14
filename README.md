@@ -279,6 +279,7 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 | GET | `/portfolio/trades` | Trade history (optionally filter by ticker) |
 | POST | `/portfolio/snapshot` | Capture today's portfolio state (idempotent per day) |
 | GET | `/portfolio/history?days=N` | Equity-curve data + period return |
+| POST | `/portfolio/enforce-stops` | Close positions that crossed stop_loss or take_profit |
 
 ## Roadmap
 
@@ -290,6 +291,7 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 - [x] Paper trading portfolio ($1M virtual capital, auto-execute agent recommendations)
 - [x] Model improvements (5-day target, class balance via `scale_pos_weight`, ATR feature, drop `bb_mid`)
 - [x] Daily portfolio snapshots (equity curve + period return over any window)
+- [x] Stop-loss / take-profit auto-enforcement (autonomous position closure)
 - [ ] Langfuse LLM observability
 - [ ] Retraining + drift monitoring (Evidently)
 - [ ] pgvector for news RAG
