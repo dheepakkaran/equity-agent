@@ -87,7 +87,13 @@ flowchart TB
     end
 ```
 
-Chronological split is critical — random shuffle would leak future data into training. AAPL first-pass accuracy is 45% (below the 50% baseline, DOWN-biased). Daily direction is genuinely noisy signal; improvement roadmap is multi-ticker training + 5-day target + class balance.
+Chronological split is critical — random shuffle would leak future data into training.
+
+**Phase 7 improvements** (after 10-ticker bootstrap revealed a systemic DOWN-bias — 9/10 predictions were SHORT):
+- **5-day target** instead of 1-day. Daily direction is near-random walk; 5-day trends carry real signal.
+- **`scale_pos_weight`** computed from training class balance so the model can't collapse to the majority class.
+- **`atr_14` feature** (Wilder ATR) added — real volatility from OHLC that captures gaps, unlike the earlier `|ret_20d|/20` proxy.
+- **`bb_mid` dropped** — zero XGBoost importance, collinear with `sma_20`.
 
 **Endpoints:** `POST /predict/{ticker}/train`, `GET /predict/{ticker}`
 
@@ -280,7 +286,7 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 - [x] LangGraph multi-agent: Technical + Risk + Synthesis
 - [x] News agent (yfinance headlines + Gemini sentiment)
 - [x] Paper trading portfolio ($1M virtual capital, auto-execute agent recommendations)
-- [ ] Model improvements (multi-ticker, 5-day target, class balance)
+- [x] Model improvements (5-day target, class balance via `scale_pos_weight`, ATR feature, drop `bb_mid`)
 - [ ] Langfuse LLM observability
 - [ ] Retraining + drift monitoring (Evidently)
 - [ ] pgvector for news RAG

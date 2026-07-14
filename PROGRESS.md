@@ -111,7 +111,7 @@ Multi-agent AI equity research platform: **XGBoost ML brain** + **LangGraph LLM 
 - Response schema: added `Headline` model + `news_headlines`/`news_summary` fields to `AnalysisResponse`
 - **Verified on AAPL 2026-07-14:** yfinance returned 10 headlines (KeyBanc Underweight cut, iPhone weakness, retail selling); news agent produced correct BEARISH verdict; synthesis reconciled bullish technicals vs bearish news+ML into a coherent SHORT recommendation. Full 3-agent pipeline operational.
 
-### Phase 6 — Paper Trading Portfolio (uncommitted, 2026-07-14)
+### Phase 6 — Paper Trading Portfolio (committed 2026-07-14)
 - **$1M virtual starting capital.**
 - Alembic migration `a1b2c3d4e5f6_create_portfolio_tables.py`: creates `portfolios`, `positions`, `trades` tables.
 - Models: `app/models/portfolio.py` — `Portfolio`, `Position`, `Trade`; unique constraint `(portfolio_id, ticker, side)` so LONG and SHORT can coexist on different tickers but not double-open same side.
@@ -130,7 +130,29 @@ Multi-agent AI equity research platform: **XGBoost ML brain** + **LangGraph LLM 
   - `GET /portfolio/trades` — trade history, optional ticker filter
 - Risk agent `DEFAULT_PORTFOLIO_USD`: $10k → **$1M** (suggested_shares scales 100×)
 - Router wired in `app/main.py`
-- **Not yet migrated/tested** — run `alembic upgrade head` first
+- **Verified 2026-07-14:** AAPL SHORT 2745 @ $315.32 auto-executed via `/portfolio/execute`. Fixed a P&L accounting bug (SHORT liability wasn't offsetting cash proceeds in `total_value`).
+- Multi-ticker bootstrap: `scripts/bootstrap_multi_ticker.py` — ran across 10 tickers (SPY/QQQ/AAPL/MSFT/NVDA/GOOGL/META/TSLA/AMZN/AMD) in ~3.5 min. Result: **9 SHORT, 1 LONG (META)** — exposed the systemic DOWN-bias in the XGBoost model → drove Phase 7 next.
+
+### Phase 7 — XGBoost improvements (uncommitted, 2026-07-14)
+
+Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
+
+- `app/services/features.py`:
+  - Added `atr(high, low, close, 14)` — Wilder ATR from raw OHLC. Real volatility (captures gaps) vs the crude `|ret_20d|/20` proxy.
+  - `compute_all_features` now includes `atr_14`.
+- `app/ml/dataset.py`:
+  - `TARGET_HORIZON = 5` — target is now "close in 5 trading days > today" instead of "close tomorrow > today". Daily direction is near-random; multi-day trends carry actual signal.
+  - `build_supervised_frame(df, horizon=5)` — drops last `horizon` rows, uses `shift(-horizon)`.
+  - `FEATURE_COLUMNS`: dropped `bb_mid` (was zero-importance and collinear with `sma_20`), added `atr_14`. Feature count unchanged at 15.
+- `app/ml/train.py`:
+  - Computes `scale_pos_weight = neg_count / pos_count` from training labels.
+  - Passes to `XGBClassifier` — up-weights the minority class so predictions aren't collapsed to majority.
+  - Logs `train_pos_count`, `train_neg_count`, `scale_pos_weight` to MLflow.
+- `app/schemas/features.py`: added `atr_14` field.
+- `app/api/features.py`: propagates `atr_14`.
+- `app/agents/coordinator.py`: `FEATURE_KEYS` now includes `atr_14`.
+- `scripts/retrain_all_tickers.py` — retrains all 10 tickers and prints per-ticker accuracy + confusion matrix + predicted direction so the UP/DOWN split is visible at a glance.
+- **Not yet tested end-to-end** — need to retrain all models then re-run bootstrap
 
 ---
 
@@ -138,25 +160,28 @@ Multi-agent AI equity research platform: **XGBoost ML brain** + **LangGraph LLM 
 
 ### 🔴 IMMEDIATE (next session start here)
 
-**Migrate DB + test Phase 6 (paper trading), then commit.**
-```powershell
-.\venv\Scripts\Activate.ps1
-alembic upgrade head    # creates portfolios/positions/trades tables
+**Retrain all 10 models with the new setup, then re-bootstrap to confirm balanced BUY/SHORT split.**
 
-# uvicorn should auto-reload; if stopped:
+```powershell
+# uvicorn should already be running with --reload; if not:
 uvicorn app.main:app --reload
 
-# Test sequence:
-# 1. GET  http://localhost:8000/portfolio         → $1M cash, no positions
-# 2. POST http://localhost:8000/portfolio/execute/AAPL   → auto-executes agent trade plan
-# 3. GET  http://localhost:8000/portfolio         → open SHORT position, unrealized P&L computed
-# 4. GET  http://localhost:8000/portfolio/trades  → trade history
+# Reset portfolio (clears stale positions from prior bootstrap)
+curl.exe -X POST http://localhost:8000/portfolio/reset
+
+# Retrain every ticker
+python scripts/retrain_all_tickers.py
+# Expect: mixed UP/DOWN predictions, accuracies >= 50% for most tickers
+
+# Re-run the bootstrap to execute trades with new models
+python scripts/bootstrap_multi_ticker.py
+# Expect: mix of BUY and SHORT (not 9:1 like before)
 ```
 
-If green:
+If the direction split is balanced and average accuracy improved:
 ```powershell
-git add alembic app/models/portfolio.py app/schemas/portfolio.py app/services/portfolio_service.py app/api/portfolio.py app/main.py app/agents/risk.py PROGRESS.md README.md
-git commit -m "Add paper trading portfolio ($1M virtual capital) + auto-execute agent recommendations"
+git add app/services/features.py app/ml/dataset.py app/ml/train.py app/schemas/features.py app/api/features.py app/agents/coordinator.py scripts/retrain_all_tickers.py scripts/bootstrap_multi_ticker.py scripts/check_gemini_quota.py PROGRESS.md README.md
+git commit -m "Phase 7: 5-day target + class balance + ATR feature to fix XGBoost DOWN-bias"
 git push
 ```
 
