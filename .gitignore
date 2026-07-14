@@ -36,6 +36,7 @@ data/
 *.joblib
 mlruns/
 mlartifacts/
+/models/
 
 # Testing
 .pytest_cache/

@@ -165,6 +165,59 @@ flowchart TB
 
 ---
 
+## Phase 6 — Paper Trading Portfolio
+
+Closes the loop from advisory (`/analyze` produces text + numbers) to execution + P&L tracking. **$1M virtual starting capital** — no real money at risk, but real market data and real system decisions.
+
+```mermaid
+flowchart TB
+    subgraph AUTO[POST /portfolio/execute/AAPL]
+        A1[Run /analyze pipeline]
+        A2{Prediction direction?}
+        A3{Same-side position open?}
+        A4[Skip - already positioned]
+        A5[Execute BUY / SHORT<br/>with suggested_shares]
+        A1 --> A2
+        A2 -->|UP or DOWN| A3
+        A3 -->|Yes| A4
+        A3 -->|No| A5
+    end
+
+    subgraph MANUAL[POST /portfolio/trade]
+        M1[BUY / SELL / SHORT / COVER<br/>at latest close]
+    end
+
+    A5 --> ENGINE
+    M1 --> ENGINE
+
+    subgraph ENGINE[portfolio_service.execute_trade]
+        E1[Reject cross-side flip]
+        E2[Update cash_balance]
+        E3[Upsert position<br/>weighted-avg entry]
+        E4[Realize P&L on SELL / COVER]
+        E5[Append to trades log]
+    end
+
+    ENGINE --> DB[(portfolios · positions · trades)]
+
+    DB --> VIEW[GET /portfolio]
+    VIEW --> V1[Cash balance]
+    VIEW --> V2[Open positions<br/>mark-to-market from latest close]
+    VIEW --> V3[Unrealized P&L]
+    VIEW --> V4[Total return %]
+```
+
+**Key semantics:**
+- **BUY** — opens/adds LONG; cash decreases; weighted-avg entry price maintained
+- **SELL** — closes (partial or full) LONG; realizes `(price - avg_entry) × shares`
+- **SHORT** — opens/adds SHORT; cash *increases* (proceeds credited); weighted-avg entry
+- **COVER** — closes SHORT; realizes `(avg_entry - price) × shares`
+- Cross-side flips (e.g. BUY while SHORT open) are rejected — must close first
+
+**Endpoints:** `GET /portfolio` · `POST /portfolio/reset` · `POST /portfolio/trade` · `POST /portfolio/execute/{ticker}` · `GET /portfolio/trades`
+
+---
+
 ## Tech Stack
 
 | Layer | Choice | Why |
@@ -213,6 +266,11 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 | POST | `/predict/{ticker}/train` | Train XGBoost, log to MLflow |
 | GET | `/predict/{ticker}` | Predict next-day direction |
 | POST | `/analyze/{ticker}` | Full multi-agent analysis + trade plan |
+| GET | `/portfolio` | Current cash, positions, unrealized P&L, total return |
+| POST | `/portfolio/reset` | Wipe positions/trades, restore $1M cash |
+| POST | `/portfolio/trade` | Manual BUY/SELL/SHORT/COVER at latest close |
+| POST | `/portfolio/execute/{ticker}` | Auto-execute the agent's recommended trade |
+| GET | `/portfolio/trades` | Trade history (optionally filter by ticker) |
 
 ## Roadmap
 
@@ -221,7 +279,7 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 - [x] XGBoost next-day direction prediction with MLflow
 - [x] LangGraph multi-agent: Technical + Risk + Synthesis
 - [x] News agent (yfinance headlines + Gemini sentiment)
-- [ ] Paper trading portfolio (positions, trades, P&L)
+- [x] Paper trading portfolio ($1M virtual capital, auto-execute agent recommendations)
 - [ ] Model improvements (multi-ticker, 5-day target, class balance)
 - [ ] Langfuse LLM observability
 - [ ] Retraining + drift monitoring (Evidently)

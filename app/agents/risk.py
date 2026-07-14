@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from app.agents.base import AgentState
 
-DEFAULT_PORTFOLIO_USD = 10_000.0
+DEFAULT_PORTFOLIO_USD = 1_000_000.0
 RISK_PER_TRADE = 0.02  # never risk more than 2% of portfolio on one trade
 
 
@@ -65,7 +65,7 @@ def risk_node(state: AgentState) -> AgentState:
             "notional_usd": round(suggested_shares * close, 2),
             "notes": (
                 "Volatility proxied from |ret_20d|/20. "
-                "Position sized so max loss ≈ 2% of $10k portfolio, "
+                "Position sized so max loss ≈ 2% of $1M portfolio, "
                 "scaled down by (confidence - 0.5). "
                 "Zero shares means confidence too low or no direction."
             ),

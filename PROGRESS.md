@@ -96,7 +96,7 @@ Multi-agent AI equity research platform: **XGBoost ML brain** + **LangGraph LLM 
 - **Verified end-to-end on AAPL 2026-07-14:** technical narrative reconciled bullish trend with DOWN ML signal via Bollinger upper-band proximity; risk agent produced correct SHORT stop-loss above entry; coordinator synthesised SHORT trade plan with entry/stop/target/shares/notional consistent
 - **Gemini model gotcha:** `gemini-1.5-flash` returns 404 on v1beta — must use `gemini-2.5-flash` (fixed in `app/agents/base.py`)
 
-### Phase 5 — News Agent (uncommitted, verified 2026-07-14)
+### Phase 5 — News Agent (committed, verified 2026-07-14)
 - `app/services/news.py`:
   - `fetch_headlines(ticker, limit=10)` — uses `yfinance.Ticker(ticker).news` (no new API key)
   - `_extract_headline(item)` — handles both new-shape (`content.title`, `provider.displayName`, `pubDate`) and legacy-shape (`title`, `publisher`, `providerPublishTime`)
@@ -111,24 +111,52 @@ Multi-agent AI equity research platform: **XGBoost ML brain** + **LangGraph LLM 
 - Response schema: added `Headline` model + `news_headlines`/`news_summary` fields to `AnalysisResponse`
 - **Verified on AAPL 2026-07-14:** yfinance returned 10 headlines (KeyBanc Underweight cut, iPhone weakness, retail selling); news agent produced correct BEARISH verdict; synthesis reconciled bullish technicals vs bearish news+ML into a coherent SHORT recommendation. Full 3-agent pipeline operational.
 
+### Phase 6 — Paper Trading Portfolio (uncommitted, 2026-07-14)
+- **$1M virtual starting capital.**
+- Alembic migration `a1b2c3d4e5f6_create_portfolio_tables.py`: creates `portfolios`, `positions`, `trades` tables.
+- Models: `app/models/portfolio.py` — `Portfolio`, `Position`, `Trade`; unique constraint `(portfolio_id, ticker, side)` so LONG and SHORT can coexist on different tickers but not double-open same side.
+- Service: `app/services/portfolio_service.py`:
+  - Actions: BUY / SELL / SHORT / COVER
+  - BUY: cash decrease, weighted-avg entry price, opens/adds LONG
+  - SELL: cash increase, realizes `(price - avg_entry) × shares`, deletes position if shares hit 0
+  - SHORT: cash increase (proceeds), opens/adds SHORT
+  - COVER: cash decrease, realizes `(avg_entry - price) × shares`
+  - Cross-side flips rejected (must close opposite side first)
+- Endpoints (`app/api/portfolio.py`):
+  - `GET /portfolio` — cash + open positions + unrealized P&L + total return
+  - `POST /portfolio/reset` — wipe positions/trades, restore $1M cash
+  - `POST /portfolio/trade` — manual BUY/SELL/SHORT/COVER at latest close
+  - `POST /portfolio/execute/{ticker}` — auto-run `/analyze/{ticker}`, execute the trade plan (skips if 0 shares, already same-side position, or no ML signal)
+  - `GET /portfolio/trades` — trade history, optional ticker filter
+- Risk agent `DEFAULT_PORTFOLIO_USD`: $10k → **$1M** (suggested_shares scales 100×)
+- Router wired in `app/main.py`
+- **Not yet migrated/tested** — run `alembic upgrade head` first
+
 ---
 
 ## 🚧 PENDING WORK — Ordered by priority
 
 ### 🔴 IMMEDIATE (next session start here)
 
-**Verify Phase 5 works, then commit.**
+**Migrate DB + test Phase 6 (paper trading), then commit.**
 ```powershell
-# uvicorn already running with --reload; if not:
+.\venv\Scripts\Activate.ps1
+alembic upgrade head    # creates portfolios/positions/trades tables
+
+# uvicorn should auto-reload; if stopped:
 uvicorn app.main:app --reload
-# Hit: POST http://localhost:8000/analyze/AAPL
-# Expect: news_headlines (list) + news_summary (LLM text) populated
+
+# Test sequence:
+# 1. GET  http://localhost:8000/portfolio         → $1M cash, no positions
+# 2. POST http://localhost:8000/portfolio/execute/AAPL   → auto-executes agent trade plan
+# 3. GET  http://localhost:8000/portfolio         → open SHORT position, unrealized P&L computed
+# 4. GET  http://localhost:8000/portfolio/trades  → trade history
 ```
 
 If green:
 ```powershell
-git add app/agents app/services/news.py app/schemas/analysis.py app/api/analysis.py PROGRESS.md
-git commit -m "Add news sentiment agent (yfinance headlines + Gemini)"
+git add alembic app/models/portfolio.py app/schemas/portfolio.py app/services/portfolio_service.py app/api/portfolio.py app/main.py app/agents/risk.py PROGRESS.md README.md
+git commit -m "Add paper trading portfolio ($1M virtual capital) + auto-execute agent recommendations"
 git push
 ```
 
