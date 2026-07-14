@@ -292,6 +292,7 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 - [x] Model improvements (5-day target, class balance via `scale_pos_weight`, ATR feature, drop `bb_mid`)
 - [x] Daily portfolio snapshots (equity curve + period return over any window)
 - [x] Stop-loss / take-profit auto-enforcement (autonomous position closure)
+- [x] Daily automation via GitHub Actions cron (ingest + enforce + snapshot, no server required)
 - [ ] Langfuse LLM observability
 - [ ] Retraining + drift monitoring (Evidently)
 - [ ] pgvector for news RAG

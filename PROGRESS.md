@@ -166,7 +166,7 @@ Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
 - Schemas: `SnapshotOut`, `HistoryResponse` in `app/schemas/portfolio.py`
 - Migration applied 2026-07-14; verified idempotent per day (2nd call updates existing row rather than duplicating).
 
-### Phase 9 — Stop-Loss / Take-Profit Auto-Enforcement (uncommitted, 2026-07-14)
+### Phase 9 — Stop-Loss / Take-Profit Auto-Enforcement (committed 2026-07-14)
 - `app/services/portfolio_service.py`:
   - `enforce_stops(db, portfolio)` — scans all open positions, closes ones where latest close crossed the stored `stop_loss` or `take_profit`
   - LONG rules: close on `current <= stop_loss` (SELL, loss capped) or `current >= take_profit` (SELL, profit taken)
@@ -175,7 +175,24 @@ Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
 - Endpoint: `POST /portfolio/enforce-stops` — returns list of enforcement actions plus updated portfolio summary
 - Schemas: `EnforcementAction`, `EnforcementResult`
 - Zero LLM cost — pure rule-based
-- **Not yet tested** — restart uvicorn if needed then hit `/portfolio/enforce-stops`
+- **Verified 2026-07-14:** 10 positions scanned, 0 triggered (correct — all opened at latest close so nothing had moved yet).
+
+### Phase 10 — Daily automation via GitHub Actions (uncommitted, 2026-07-14)
+- `scripts/daily_close.py` — direct-DB script (no uvicorn dependency):
+  1. Ingest fresh 7 days of OHLCV for all 10 tickers (idempotent upsert)
+  2. Enforce stop-loss / take-profit on all open positions
+  3. Take end-of-day portfolio snapshot
+- `.github/workflows/daily-close.yml`:
+  - Cron: `15 20 * * 1-5` — 20:15 UTC weekdays, ~4:15 PM ET (after US market close at 4:00 PM ET)
+  - Also triggerable manually via `workflow_dispatch`
+  - Ubuntu runner, Python 3.12, pip caching for speed
+  - Uses `DATABASE_URL` and `GEMINI_API_KEY` GitHub secrets
+- **Zero deployment needed** — GitHub Actions runners connect directly to Neon DB. Laptop + uvicorn no longer required for daily operations.
+- **Setup steps for next run:**
+  1. GitHub repo → Settings → Secrets and variables → Actions → New secret
+  2. Add `DATABASE_URL` (same value as `.env`)
+  3. Optionally add `GEMINI_API_KEY`
+  4. Manually trigger the workflow once via Actions → daily-close → Run workflow to verify
 
 ---
 
@@ -183,24 +200,25 @@ Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
 
 ### 🔴 IMMEDIATE (next session start here)
 
-**Test Phase 9 stop-loss enforcement, then commit.**
+**Test Phase 10 automation locally, add GitHub secrets, commit + push, verify workflow runs.**
 
 ```powershell
-# uvicorn auto-reloads on file changes; restart manually if needed:
-uvicorn app.main:app --reload
+# 1. Test the script locally (same code the cron will run)
+python scripts/daily_close.py
+# Expect: ingest lines, "no positions crossed thresholds", snapshot summary
 
-# Trigger enforcement
-curl.exe -X POST http://localhost:8000/portfolio/enforce-stops
-
-# Nothing should trigger today (snapshot was just taken at entry prices).
-# Once market moves and OHLCV re-ingest brings new close, some positions will close.
-```
-
-If green:
-```powershell
-git add app/services/portfolio_service.py app/schemas/portfolio.py app/api/portfolio.py PROGRESS.md README.md
-git commit -m "Phase 9: stop-loss / take-profit auto-enforcement"
+# 2. Commit + push
+git add scripts/daily_close.py .github PROGRESS.md README.md
+git commit -m "Phase 10: daily-close automation via GitHub Actions cron"
 git push
+
+# 3. In GitHub UI:
+#    Settings → Secrets and variables → Actions → New repository secret
+#    Add DATABASE_URL (copy the value from .env)
+#    Add GEMINI_API_KEY (same as .env)
+
+# 4. Manually trigger to verify:
+#    Actions tab → "Daily close" workflow → Run workflow
 ```
 
 ---
