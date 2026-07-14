@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import analysis, features, health, predictions, stocks
+from app.api import analysis, features, health, portfolio, predictions, stocks
 from app.config import settings
 
 app = FastAPI(
@@ -14,6 +14,7 @@ app.include_router(stocks.router, prefix="/stocks", tags=["stocks"])
 app.include_router(features.router, prefix="/stocks", tags=["features"])
 app.include_router(predictions.router, prefix="/predict", tags=["predictions"])
 app.include_router(analysis.router, prefix="/analyze", tags=["analysis"])
+app.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"])
 
 
 @app.get("/")

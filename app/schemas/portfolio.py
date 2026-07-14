@@ -1,0 +1,66 @@
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+TradeAction = Literal["BUY", "SELL", "SHORT", "COVER"]
+PositionSide = Literal["LONG", "SHORT"]
+
+
+class TradeRequest(BaseModel):
+    ticker: str
+    action: TradeAction
+    shares: int = Field(..., gt=0)
+    stop_loss: float | None = None
+    take_profit: float | None = None
+
+
+class TradeOut(BaseModel):
+    id: int
+    ticker: str
+    action: str
+    shares: int
+    price: float
+    notional: float
+    realized_pnl: float | None
+    source: str
+    executed_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PositionOut(BaseModel):
+    id: int
+    ticker: str
+    side: str
+    shares: int
+    avg_entry_price: float
+    stop_loss: float | None
+    take_profit: float | None
+    current_price: float | None
+    market_value: float | None
+    unrealized_pnl: float | None
+    unrealized_pnl_pct: float | None
+    opened_at: datetime
+
+
+class PortfolioSummary(BaseModel):
+    id: int
+    name: str
+    initial_capital: float
+    cash_balance: float
+    positions_market_value: float
+    total_value: float
+    total_return_usd: float
+    total_return_pct: float
+    positions: list[PositionOut]
+
+
+class ExecutionResult(BaseModel):
+    executed: bool
+    reason: str
+    trade: TradeOut | None = None
+    recommendation_direction: str | None = None
+    portfolio_after: PortfolioSummary | None = None
