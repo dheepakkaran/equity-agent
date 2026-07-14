@@ -26,6 +26,8 @@ class AgentState(TypedDict, total=False):
     close: float
     features: dict[str, float | None]
     prediction: dict[str, Any] | None
+    news_headlines: list[dict[str, Any]]
+    news_summary: str
     technical_analysis: str
     risk_assessment: dict[str, Any]
     final_recommendation: str

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.agents.coordinator import run_analysis
 from app.database import get_db
-from app.schemas.analysis import AnalysisResponse, RiskAssessment
+from app.schemas.analysis import AnalysisResponse, Headline, RiskAssessment
 
 router = APIRouter()
 
@@ -24,12 +24,16 @@ async def analyze_ticker(ticker: str, db: Session = Depends(get_db)):
     risk_raw = state.get("risk_assessment")
     risk = RiskAssessment(**risk_raw) if risk_raw else None
 
+    headlines = [Headline(**h) for h in (state.get("news_headlines") or [])]
+
     return AnalysisResponse(
         ticker=state["ticker"],
         as_of_date=state.get("as_of_date"),
         close=state.get("close"),
         features=state.get("features") or {},
         prediction=state.get("prediction"),
+        news_headlines=headlines,
+        news_summary=state.get("news_summary", ""),
         technical_analysis=state.get("technical_analysis", ""),
         risk_assessment=risk,
         final_recommendation=state.get("final_recommendation", ""),

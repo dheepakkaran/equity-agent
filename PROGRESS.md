@@ -72,7 +72,7 @@ Multi-agent AI equity research platform: **XGBoost ML brain** + **LangGraph LLM 
 - `bb_mid` = 0 importance (redundant with sma_20 — cleanup opportunity)
 - **Expected**: daily direction prediction is inherently noisy; 45% on first pass with only single-ticker training is normal
 
-### Phase 4 — LangGraph Multi-Agent Orchestrator (uncommitted, 2026-07-14)
+### Phase 4 — LangGraph Multi-Agent Orchestrator (committed 2026-07-14)
 - `app/agents/base.py`:
   - `get_llm(temperature, model)` — Gemini factory (`gemini-1.5-flash` default)
   - `AgentState` TypedDict (ticker, features, prediction, technical_analysis, risk_assessment, final_recommendation, errors)
@@ -96,40 +96,41 @@ Multi-agent AI equity research platform: **XGBoost ML brain** + **LangGraph LLM 
 - **Verified end-to-end on AAPL 2026-07-14:** technical narrative reconciled bullish trend with DOWN ML signal via Bollinger upper-band proximity; risk agent produced correct SHORT stop-loss above entry; coordinator synthesised SHORT trade plan with entry/stop/target/shares/notional consistent
 - **Gemini model gotcha:** `gemini-1.5-flash` returns 404 on v1beta — must use `gemini-2.5-flash` (fixed in `app/agents/base.py`)
 
+### Phase 5 — News Agent (uncommitted, verified 2026-07-14)
+- `app/services/news.py`:
+  - `fetch_headlines(ticker, limit=10)` — uses `yfinance.Ticker(ticker).news` (no new API key)
+  - `_extract_headline(item)` — handles both new-shape (`content.title`, `provider.displayName`, `pubDate`) and legacy-shape (`title`, `publisher`, `providerPublishTime`)
+  - Returns [] on any failure (safe for empty-news tickers)
+- `app/agents/news.py`:
+  - `news_node(state)` — LLM (Gemini) reads headlines → 4-6 sentence sentiment brief with BULLISH/BEARISH/MIXED/NEUTRAL verdict + top themes + catalysts
+  - Skips LLM call if headlines empty (returns "No recent news available.")
+- Updated `AgentState` in `base.py` with `news_headlines` + `news_summary`
+- Coordinator graph now: `fetch → news → technical → risk → synthesize`
+- `fetch_node` also loads headlines during data-fetch step
+- Synthesize prompt updated to consume news alongside technical + risk + ML signal
+- Response schema: added `Headline` model + `news_headlines`/`news_summary` fields to `AnalysisResponse`
+- **Verified on AAPL 2026-07-14:** yfinance returned 10 headlines (KeyBanc Underweight cut, iPhone weakness, retail selling); news agent produced correct BEARISH verdict; synthesis reconciled bullish technicals vs bearish news+ML into a coherent SHORT recommendation. Full 3-agent pipeline operational.
+
 ---
 
 ## 🚧 PENDING WORK — Ordered by priority
 
 ### 🔴 IMMEDIATE (next session start here)
 
-**Verify Phase 4 works end-to-end, then commit.**
+**Verify Phase 5 works, then commit.**
 ```powershell
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+# uvicorn already running with --reload; if not:
 uvicorn app.main:app --reload
-# In another shell:
-# POST http://localhost:8000/analyze/AAPL
+# Hit: POST http://localhost:8000/analyze/AAPL
+# Expect: news_headlines (list) + news_summary (LLM text) populated
 ```
 
 If green:
 ```powershell
-git add app/agents app/schemas/analysis.py app/api/analysis.py app/main.py requirements.txt PROGRESS.md
-git commit -m "Add LangGraph multi-agent analysis pipeline (technical + risk + synthesis)"
+git add app/agents app/services/news.py app/schemas/analysis.py app/api/analysis.py PROGRESS.md
+git commit -m "Add news sentiment agent (yfinance headlines + Gemini)"
 git push
 ```
-
----
-
-### 🟡 NEXT MAJOR PHASE — Add News agent (complete the multi-agent trio)
-
-**Why this next:** Technical + Risk covered fundamentals. News/sentiment is the third leg — it's what turns this from a chart reader into a real research analyst.
-
-Sub-steps:
-1. Pick news source — NewsAPI free tier (100 req/day) OR Alpha Vantage news sentiment (already free) OR RSS scraping (yfinance news)
-2. `app/services/news.py` — fetch + cache recent headlines per ticker
-3. `app/agents/news.py` — LLM summarises sentiment + key themes
-4. Wire into coordinator: `fetch → [technical, news] → risk → synthesize` (parallel technical + news possible with LangGraph)
-5. Extend `AnalysisResponse` with `news_summary` field
 
 ---
 
@@ -199,12 +200,13 @@ equity-agent/
 │   │   ├── features.py        # /stocks/{ticker}/features
 │   │   ├── predictions.py     # /predict/{ticker}/train, /predict/{ticker}
 │   │   └── analysis.py        # /analyze/{ticker} (multi-agent)
-│   ├── agents/                # LangGraph multi-agent layer (Phase 4)
+│   ├── agents/                # LangGraph multi-agent layer (Phase 4-5)
 │   │   ├── __init__.py
 │   │   ├── base.py            # LLM factory + AgentState
 │   │   ├── technical.py       # LLM technical analysis node
+│   │   ├── news.py            # LLM news sentiment node (Phase 5)
 │   │   ├── risk.py            # Rule-based risk node
-│   │   └── coordinator.py     # StateGraph: fetch→technical→risk→synthesize
+│   │   └── coordinator.py     # StateGraph: fetch→news→technical→risk→synthesize
 │   ├── models/
 │   │   └── stock.py           # StockOHLCV table
 │   ├── schemas/
@@ -213,8 +215,9 @@ equity-agent/
 │   │   ├── prediction.py
 │   │   └── analysis.py
 │   ├── services/
-│   │   ├── data_service.py    # Yahoo Finance + upsert
-│   │   └── features.py        # Technical indicators
+│   │   ├── data_service.py    # Yahoo Finance OHLCV + upsert
+│   │   ├── features.py        # Technical indicators
+│   │   └── news.py            # yfinance headlines fetcher (Phase 5)
 │   └── ml/
 │       ├── __init__.py
 │       ├── dataset.py

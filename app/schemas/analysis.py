@@ -15,6 +15,14 @@ class RiskAssessment(BaseModel):
     notes: str
 
 
+class Headline(BaseModel):
+    title: str
+    publisher: str | None = None
+    published_at: str | None = None
+    url: str | None = None
+    summary: str | None = None
+
+
 class AnalysisResponse(BaseModel):
     ticker: str
     as_of_date: str | None
@@ -23,6 +31,8 @@ class AnalysisResponse(BaseModel):
     prediction: dict[str, Any] | None = Field(
         None, description="XGBoost next-day direction prediction, if model trained"
     )
+    news_headlines: list[Headline] = Field(default_factory=list)
+    news_summary: str = ""
     technical_analysis: str
     risk_assessment: RiskAssessment | None
     final_recommendation: str

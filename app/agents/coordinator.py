@@ -1,8 +1,8 @@
-"""LangGraph coordinator wiring: data → technical → risk → synthesize.
+"""LangGraph coordinator wiring: fetch → news → technical → risk → synthesize.
 
-Data node pulls latest features from Postgres and the trained XGBoost prediction
-(if available). Technical & risk agents run in sequence, then a final LLM node
-composes a human-readable recommendation.
+Data node pulls latest features + XGBoost prediction + recent news headlines.
+News, technical, risk agents run in sequence, then a final LLM node composes
+a human-readable recommendation.
 """
 from __future__ import annotations
 
@@ -14,11 +14,13 @@ from langgraph.graph import END, StateGraph
 from sqlalchemy.orm import Session
 
 from app.agents.base import AgentState, get_llm
+from app.agents.news import news_node
 from app.agents.risk import risk_node
 from app.agents.technical import technical_node
 from app.ml.predict import ModelNotTrainedError, predict_next_day
 from app.models.stock import StockOHLCV
 from app.services.features import compute_all_features
+from app.services.news import fetch_headlines
 
 FEATURE_KEYS = [
     "sma_20", "sma_50", "ema_12", "ema_26", "rsi_14",
@@ -55,6 +57,7 @@ def make_fetch_node(db: Session):
             return {
                 "errors": [f"no OHLCV rows for {ticker}; fetch via /stocks/{ticker} first"],
                 "features": {},
+                "news_headlines": [],
             }
 
         df = pd.DataFrame(
@@ -79,25 +82,26 @@ def make_fetch_node(db: Session):
         as_of_str = as_of.isoformat() if hasattr(as_of, "isoformat") else str(as_of)
 
         prediction = None
+        pred_error = None
         try:
             prediction = predict_next_day(ticker, db)
         except ModelNotTrainedError:
             prediction = None
         except Exception as exc:  # noqa: BLE001
-            return {
-                "as_of_date": as_of_str,
-                "close": float(latest["close"]),
-                "features": features,
-                "prediction": None,
-                "errors": [f"prediction_error: {exc}"],
-            }
+            pred_error = f"prediction_error: {exc}"
 
-        return {
+        headlines = fetch_headlines(ticker, limit=10)
+
+        result: AgentState = {
             "as_of_date": as_of_str,
             "close": float(latest["close"]),
             "features": features,
             "prediction": prediction,
+            "news_headlines": headlines,
         }
+        if pred_error:
+            result["errors"] = [pred_error]
+        return result
 
     return fetch_node
 
@@ -107,17 +111,20 @@ _SYNTH_PROMPT = ChatPromptTemplate.from_messages(
         (
             "system",
             "You are the head of an equity research desk. Read the technical analyst's "
-            "note and the risk desk's parameters, then produce ONE final recommendation "
-            "for a retail investor. Be concrete. Structure: (1) One-line verdict "
-            "(BUY / HOLD / AVOID / SHORT with confidence low/med/high), "
-            "(2) Two-sentence rationale referencing the technicals, "
-            "(3) Trade plan: entry near current close, exact stop-loss, take-profit, "
-            "shares to buy, and total notional. Never invent numbers not in the input.",
+            "note, the news analyst's sentiment brief, and the risk desk's parameters, "
+            "then produce ONE final recommendation for a retail investor. Be concrete. "
+            "Structure: (1) One-line verdict (BUY / HOLD / AVOID / SHORT with confidence "
+            "low/med/high), (2) Two-to-three sentence rationale that reconciles the "
+            "technicals, news sentiment, and ML signal — call out conflicts if they "
+            "exist, (3) Trade plan: entry near current close, exact stop-loss, "
+            "take-profit, shares to buy, and total notional. Never invent numbers not "
+            "in the input.",
         ),
         (
             "human",
             "Ticker: {ticker}\nClose: {close}\n\n"
             "TECHNICAL ANALYST NOTE:\n{technical_analysis}\n\n"
+            "NEWS ANALYST NOTE:\n{news_summary}\n\n"
             "RISK DESK PARAMETERS:\n{risk_block}\n\n"
             "ML DIRECTION SIGNAL:\n{prediction_block}",
         ),
@@ -150,6 +157,7 @@ def synthesize_node(state: AgentState) -> AgentState:
                 "ticker": state["ticker"],
                 "close": state.get("close", 0.0),
                 "technical_analysis": state.get("technical_analysis", "n/a"),
+                "news_summary": state.get("news_summary", "n/a"),
                 "risk_block": _format_risk(state.get("risk_assessment", {})),
                 "prediction_block": _format_pred(state.get("prediction")),
             }
@@ -167,12 +175,14 @@ def synthesize_node(state: AgentState) -> AgentState:
 def build_graph(db: Session):
     graph = StateGraph(AgentState)
     graph.add_node("fetch", make_fetch_node(db))
+    graph.add_node("news", news_node)
     graph.add_node("technical", technical_node)
     graph.add_node("risk", risk_node)
     graph.add_node("synthesize", synthesize_node)
 
     graph.set_entry_point("fetch")
-    graph.add_edge("fetch", "technical")
+    graph.add_edge("fetch", "news")
+    graph.add_edge("news", "technical")
     graph.add_edge("technical", "risk")
     graph.add_edge("risk", "synthesize")
     graph.add_edge("synthesize", END)
