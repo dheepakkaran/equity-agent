@@ -1,6 +1,20 @@
+---
+title: Equity Agent
+emoji: 📈
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: Multi-agent AI equity research with XGBoost + LangGraph (Gemini)
+---
+
 # equity-agent
 
 Multi-agent AI platform for equity research, combining an **XGBoost ML brain** with a **LangGraph LLM brain** (Technical + News + Risk agents) that collaborate on stock analysis.
+
+Live demo: `https://huggingface.co/spaces/<your-username>/equity-agent` (once deployed) · Docs: `/docs` on the Space.
 
 ---
 
@@ -293,6 +307,7 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 - [x] Daily portfolio snapshots (equity curve + period return over any window)
 - [x] Stop-loss / take-profit auto-enforcement (autonomous position closure)
 - [x] Daily automation via GitHub Actions cron (ingest + enforce + snapshot, no server required)
+- [x] Hugging Face Spaces deployment (Dockerfile + Space metadata)
 - [ ] Langfuse LLM observability
 - [ ] Retraining + drift monitoring (Evidently)
 - [ ] pgvector for news RAG

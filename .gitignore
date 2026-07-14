@@ -36,7 +36,10 @@ data/
 *.joblib
 mlruns/
 mlartifacts/
-/models/
+
+# Trained XGBoost models are small (~50KB) — ship them so the container
+# doesn't need to retrain on cold start.
+!models/*.joblib
 
 # Testing
 .pytest_cache/

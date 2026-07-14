@@ -177,7 +177,7 @@ Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
 - Zero LLM cost — pure rule-based
 - **Verified 2026-07-14:** 10 positions scanned, 0 triggered (correct — all opened at latest close so nothing had moved yet).
 
-### Phase 10 — Daily automation via GitHub Actions (uncommitted, 2026-07-14)
+### Phase 10 — Daily automation via GitHub Actions (committed, verified 2026-07-14)
 - `scripts/daily_close.py` — direct-DB script (no uvicorn dependency):
   1. Ingest fresh 7 days of OHLCV for all 10 tickers (idempotent upsert)
   2. Enforce stop-loss / take-profit on all open positions
@@ -188,11 +188,13 @@ Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
   - Ubuntu runner, Python 3.12, pip caching for speed
   - Uses `DATABASE_URL` and `GEMINI_API_KEY` GitHub secrets
 - **Zero deployment needed** — GitHub Actions runners connect directly to Neon DB. Laptop + uvicorn no longer required for daily operations.
-- **Setup steps for next run:**
-  1. GitHub repo → Settings → Secrets and variables → Actions → New secret
-  2. Add `DATABASE_URL` (same value as `.env`)
-  3. Optionally add `GEMINI_API_KEY`
-  4. Manually trigger the workflow once via Actions → daily-close → Run workflow to verify
+- **Verified 2026-07-14** — first manual run succeeded in 1m 3s. All 8 steps green.
+
+### Phase 11 — Hugging Face Spaces deployment (uncommitted, 2026-07-14)
+- `Dockerfile` — Python 3.12 slim base, installs libpq for psycopg2, runs `alembic upgrade head` then uvicorn on `${PORT}` (default 7860 for HF Spaces).
+- `README.md` — added HF Spaces YAML frontmatter at the top: `sdk: docker`, `app_port: 7860`, title/colors/emoji.
+- `.gitignore` — added `!models/*.joblib` exception so trained XGBoost models (small, ~50KB each) ship with the container. Container doesn't need to retrain on cold start.
+- **Setup steps** (see instructions below).
 
 ---
 
@@ -200,26 +202,35 @@ Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
 
 ### 🔴 IMMEDIATE (next session start here)
 
-**Test Phase 10 automation locally, add GitHub secrets, commit + push, verify workflow runs.**
+**Deploy to Hugging Face Spaces.**
 
+**Step 1** — Commit the deployment artifacts:
 ```powershell
-# 1. Test the script locally (same code the cron will run)
-python scripts/daily_close.py
-# Expect: ingest lines, "no positions crossed thresholds", snapshot summary
-
-# 2. Commit + push
-git add scripts/daily_close.py .github PROGRESS.md README.md
-git commit -m "Phase 10: daily-close automation via GitHub Actions cron"
+git add Dockerfile .gitignore models README.md PROGRESS.md
+git commit -m "Phase 11 Docker + HF Space metadata for deployment"
 git push
-
-# 3. In GitHub UI:
-#    Settings → Secrets and variables → Actions → New repository secret
-#    Add DATABASE_URL (copy the value from .env)
-#    Add GEMINI_API_KEY (same as .env)
-
-# 4. Manually trigger to verify:
-#    Actions tab → "Daily close" workflow → Run workflow
 ```
+
+**Step 2** — Create the Space:
+1. Browser → https://huggingface.co/new-space
+2. Owner: your HF username · Space name: `equity-agent`
+3. License: MIT · SDK: **Docker** (blank template) · Hardware: CPU basic (free)
+4. Visibility: public
+5. Create Space
+
+**Step 3** — Add Space secrets (Settings → Variables and secrets):
+- `DATABASE_URL` — copy from `.env`
+- `GEMINI_API_KEY` — copy from `.env`
+
+**Step 4** — Link the HF Space git remote and push:
+```powershell
+# HF username = your HF handle from step 2
+git remote add hf https://huggingface.co/spaces/<your-username>/equity-agent
+git push hf main
+# You'll be prompted for HF username + a write-scoped access token (HF settings → Access tokens)
+```
+
+**Step 5** — Watch the build: on the Space page, "Logs" tab shows the Docker build. First build takes ~3-5 min. When "Running" appears, hit `https://<your-username>-equity-agent.hf.space/docs`.
 
 ---
 
