@@ -16,6 +16,7 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app.models.portfolio import Portfolio, PortfolioSnapshot, Position, Trade
+from app.models.prediction import PredictionOutcome
 from app.models.stock import StockOHLCV
 
 DEFAULT_PORTFOLIO_NAME = "main"
@@ -239,6 +240,42 @@ def execute_trade(
     return trade
 
 
+def _fresh_prediction_for(db: Session, ticker: str) -> dict | None:
+    """Best-effort: today's model prediction for a ticker, or None if unavailable.
+
+    Failure to load a model / predict is silent — enriched position display
+    should degrade to just the historical fields when predictions can't be
+    generated for that ticker.
+    """
+    try:
+        from app.ml.predict import predict_next_day  # local import to avoid cycles
+        return predict_next_day(ticker, db)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _rewards_earned_for(db: Session, ticker: str, since) -> int:
+    """Sum of reward points from PredictionOutcome for this ticker since `since`.
+
+    10 points per correct hit + 5 bonus if the correct hit had confidence >= 70%.
+    Returns 0 on any query failure so unknown-ticker positions still render.
+    """
+    try:
+        rows = (
+            db.query(PredictionOutcome)
+            .filter(
+                PredictionOutcome.ticker == ticker.upper(),
+                PredictionOutcome.was_correct.is_(True),
+                PredictionOutcome.predicted_at >= since,
+            )
+            .all()
+        )
+    except Exception:  # noqa: BLE001
+        db.rollback()
+        return 0
+    return sum(10 + (5 if o.confidence >= 0.70 else 0) for o in rows)
+
+
 def build_summary(db: Session, portfolio: Portfolio) -> dict:
     """Mark-to-market portfolio value.
 
@@ -249,6 +286,11 @@ def build_summary(db: Session, portfolio: Portfolio) -> dict:
     cost to buy back and close). Cash already reflects the proceeds/cost from
     opening the position, so the mark-to-market delta on the position offsets
     against cash to give the correct running total.
+
+    Each position is enriched with:
+      - `predicted_price_tomorrow` — model's 1-day-ish projection
+      - `expected_gain_tomorrow_usd` — signed dollar move if prediction hits
+      - `rewards_earned` — points accumulated from correct predictions since open
     """
     positions_out = []
     net_position_value = 0.0
@@ -271,6 +313,25 @@ def build_summary(db: Session, portfolio: Portfolio) -> dict:
                 (unrealized / (pos.avg_entry_price * pos.shares)) * 100 if pos.shares > 0 else 0.0
             )
 
+        # Enrich with today's fresh model view + accumulated rewards
+        pred = _fresh_prediction_for(db, pos.ticker)
+        predicted_price_tomorrow: float | None = None
+        expected_gain_tomorrow_usd: float | None = None
+        if pred is not None:
+            # 1-day estimate ≈ (confidence edge × 3% baseline) / sqrt(5)
+            conf_edge = (float(pred["confidence"]) - 0.5) * 2
+            signed_edge = conf_edge if pred["direction"] == "UP" else -conf_edge
+            one_day_move_pct = signed_edge * 3.0 / (5 ** 0.5)
+            base_price = current if current is not None else pos.avg_entry_price
+            predicted_price_tomorrow = round(base_price * (1 + one_day_move_pct / 100), 2)
+            if current is not None:
+                move = predicted_price_tomorrow - current
+                if pos.side == "SHORT":
+                    move = -move
+                expected_gain_tomorrow_usd = round(move * pos.shares, 2)
+
+        rewards_earned = _rewards_earned_for(db, pos.ticker, pos.opened_at.date() if hasattr(pos.opened_at, "date") else pos.opened_at)
+
         positions_out.append(
             {
                 "id": pos.id,
@@ -284,6 +345,9 @@ def build_summary(db: Session, portfolio: Portfolio) -> dict:
                 "market_value": market_value,
                 "unrealized_pnl": unrealized,
                 "unrealized_pnl_pct": unrealized_pct,
+                "predicted_price_tomorrow": predicted_price_tomorrow,
+                "expected_gain_tomorrow_usd": expected_gain_tomorrow_usd,
+                "rewards_earned": rewards_earned,
                 "opened_at": pos.opened_at,
             }
         )

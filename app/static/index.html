@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>equity-agent · dashboard</title>
+  <title>AI Stock Portfolio · equity-agent</title>
   <style>
     :root {
       --bg: #0a0a0a;
@@ -15,25 +15,20 @@
       --text-3: #52525b;
       --green: #10b981;
       --red: #ef4444;
-      --blue: #60a5fa;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     html { color-scheme: dark; }
-
     body {
       background: var(--bg);
       color: var(--text-1);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 14px;
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
       min-height: 100vh;
     }
-
     .container {
-      max-width: 1200px;
+      max-width: 1080px;
       margin: 0 auto;
       padding: 40px 24px 80px;
     }
@@ -41,34 +36,28 @@
     header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 40px;
-      padding-bottom: 24px;
-      border-bottom: 1px solid var(--border);
+      align-items: baseline;
+      margin-bottom: 32px;
     }
-
     header h1 {
       font-size: 22px;
       font-weight: 600;
       letter-spacing: -0.02em;
     }
-
     header .subtitle {
       color: var(--text-2);
       font-size: 13px;
-      margin-top: 4px;
+      margin-top: 2px;
     }
-
     .status {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-2);
       text-transform: uppercase;
       letter-spacing: 0.08em;
     }
-
     .status-dot {
       width: 6px;
       height: 6px;
@@ -77,17 +66,88 @@
       box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
     }
 
-    .section {
-      margin-bottom: 40px;
+    .hero {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 22px 24px;
+      margin-bottom: 36px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
     }
+    .hero-label {
+      font-size: 11px;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+    .hero-input {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hero-input .dollar { color: var(--text-2); font-size: 16px; }
+    .hero-input input {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-1);
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 500;
+      outline: none;
+      width: 140px;
+    }
+    .hero-input input:focus { border-color: var(--green); }
 
+    .hero-actions { display: flex; gap: 8px; }
+
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--text-1);
+      color: var(--bg);
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover:not(:disabled) { background: #e5e5e5; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.primary {
+      background: var(--green);
+      color: #0a0a0a;
+      font-weight: 600;
+      padding: 10px 20px;
+    }
+    button.primary:hover:not(:disabled) { background: #34d399; }
+    button.secondary {
+      background: var(--surface);
+      color: var(--text-1);
+      border: 1px solid var(--border);
+    }
+    button.secondary:hover:not(:disabled) { background: var(--surface-2); }
+    button.ghost {
+      background: transparent;
+      color: var(--text-2);
+      padding: 10px 12px;
+    }
+    button.ghost:hover:not(:disabled) { color: var(--text-1); }
+
+    .section { margin-bottom: 36px; }
     .section-title {
       font-size: 11px;
       font-weight: 500;
       color: var(--text-2);
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     .metrics-grid {
@@ -99,12 +159,10 @@
       border-radius: 6px;
       overflow: hidden;
     }
-
     .metric-card {
       background: var(--surface);
       padding: 18px 20px;
     }
-
     .metric-label {
       font-size: 11px;
       color: var(--text-2);
@@ -112,14 +170,12 @@
       letter-spacing: 0.08em;
       margin-bottom: 6px;
     }
-
     .metric-value {
       font-size: 22px;
       font-weight: 500;
       letter-spacing: -0.02em;
       font-feature-settings: "tnum";
     }
-
     .metric-sub {
       font-size: 12px;
       color: var(--text-2);
@@ -133,13 +189,11 @@
       border-radius: 6px;
       overflow: hidden;
     }
-
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 13px;
     }
-
     thead th {
       text-align: left;
       color: var(--text-2);
@@ -151,13 +205,11 @@
       border-bottom: 1px solid var(--border);
       background: var(--surface-2);
     }
-
     tbody td {
       padding: 12px 16px;
       border-bottom: 1px solid var(--border);
       font-feature-settings: "tnum";
     }
-
     tbody tr:last-child td { border-bottom: none; }
     tbody tr:hover { background: var(--surface-2); }
 
@@ -165,202 +217,26 @@
     .green { color: var(--green); }
     .red { color: var(--red); }
     .muted { color: var(--text-2); }
-    .num { font-feature-settings: "tnum"; }
 
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    .badge.short { background: rgba(239, 68, 68, 0.12); color: var(--red); }
-    .badge.long  { background: rgba(16, 185, 129, 0.12); color: var(--green); }
-    .badge.buy   { background: rgba(16, 185, 129, 0.12); color: var(--green); }
-    .badge.sell  { background: rgba(239, 68, 68, 0.12); color: var(--red); }
-    .badge.cover { background: rgba(96, 165, 250, 0.12); color: var(--blue); }
-    .badge.up    { background: rgba(16, 185, 129, 0.12); color: var(--green); }
-    .badge.down  { background: rgba(239, 68, 68, 0.12); color: var(--red); }
-
-    .signal-strong-buy    { background: rgba(16, 185, 129, 0.18); color: var(--green); }
-    .signal-moderate-buy  { background: rgba(16, 185, 129, 0.08); color: var(--green); }
-    .signal-strong-avoid  { background: rgba(239, 68, 68, 0.18); color: var(--red); }
-    .signal-moderate-avoid{ background: rgba(239, 68, 68, 0.08); color: var(--red); }
-    .signal-weak          { background: rgba(255,255,255, 0.04); color: var(--text-2); }
-
-    .signal-badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    tr.row-strong-buy { background: rgba(16, 185, 129, 0.04); }
-    tr.row-strong-avoid { background: rgba(239, 68, 68, 0.04); }
-
-    .accuracy-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 1px;
-      background: var(--border);
+    .loading, .empty {
+      color: var(--text-2);
+      font-size: 13px;
+      padding: 24px;
+      text-align: center;
+      background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 6px;
-      overflow: hidden;
-    }
-    .accuracy-card { background: var(--surface); padding: 16px 18px; }
-    .accuracy-label { font-size: 11px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
-    .accuracy-value { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
-    .accuracy-sub { font-size: 12px; color: var(--text-2); margin-top: 4px; }
-
-    .controls {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-bottom: 16px;
     }
 
-    select, button {
-      font-family: inherit;
-      font-size: 13px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text-1);
-      padding: 8px 14px;
-      border-radius: 4px;
-      outline: none;
-    }
-
-    select:focus, button:focus { border-color: var(--blue); }
-
-    button {
-      background: var(--text-1);
-      color: var(--bg);
-      border: none;
-      cursor: pointer;
-      font-weight: 500;
-    }
-
-    button:hover:not(:disabled) { background: #e5e5e5; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    button.secondary {
-      background: var(--surface);
-      color: var(--text-1);
-      border: 1px solid var(--border);
-    }
-    button.secondary:hover:not(:disabled) { background: var(--surface-2); }
-
-    button.danger {
-      background: var(--surface);
+    .error {
       color: var(--red);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-    }
-    button.danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.08); }
-
-    button.row-buy {
-      padding: 4px 12px;
-      font-size: 12px;
-      font-weight: 500;
-      background: var(--green);
-      color: #0a0a0a;
-      border: none;
-      border-radius: 4px;
-    }
-    button.row-buy:hover:not(:disabled) { background: #34d399; }
-    button.row-buy.secondary {
-      background: var(--surface);
-      color: var(--red);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-    }
-    button.row-buy.secondary:hover:not(:disabled) { background: rgba(239, 68, 68, 0.08); }
-
-    .admin-bar {
-      display: flex;
-      gap: 12px;
-      align-items: flex-end;
-      flex-wrap: wrap;
-      margin-bottom: 24px;
-    }
-
-    .admin-spacer { flex: 1; }
-
-    .capital-input {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .capital-input label {
-      font-size: 11px;
-      color: var(--text-2);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .capital-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .capital-controls .dollar {
-      color: var(--text-2);
-      font-size: 14px;
-    }
-
-    .capital-controls input {
-      width: 120px;
-      font-size: 14px;
-    }
-
-    .tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 16px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .tab {
-      background: transparent;
-      border: none;
-      color: var(--text-2);
-      padding: 10px 14px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -1px;
-    }
-    .tab:hover { color: var(--text-1); }
-    .tab.active {
-      color: var(--text-1);
-      border-bottom-color: var(--text-1);
-    }
-
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
-
-    input[type=number] {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--text-1);
-      padding: 8px 12px;
-      border-radius: 4px;
-      font-family: inherit;
       font-size: 13px;
-      outline: none;
-      width: 100px;
+      padding: 20px;
+      text-align: center;
+      background: rgba(239, 68, 68, 0.06);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 6px;
     }
-    input[type=number]:focus { border-color: var(--blue); }
-    input[type=number]::-webkit-inner-spin-button { opacity: 0.4; }
 
     .toast {
       position: fixed;
@@ -394,89 +270,6 @@
       letter-spacing: 0.08em;
     }
 
-    .analysis-output {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 24px;
-      display: none;
-    }
-    .analysis-output.visible { display: block; }
-
-    .analysis-verdict {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 20px;
-    }
-
-    .analysis-ticker {
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-    }
-
-    .analysis-ticker .price {
-      color: var(--text-2);
-      font-weight: 400;
-      margin-left: 8px;
-    }
-
-    .analysis-section-block {
-      margin-bottom: 20px;
-    }
-
-    .analysis-section-block:last-child { margin-bottom: 0; }
-
-    .analysis-section-block h3 {
-      font-size: 11px;
-      color: var(--text-2);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 8px;
-      font-weight: 500;
-    }
-
-    .analysis-section-block p {
-      color: var(--text-1);
-      line-height: 1.65;
-      white-space: pre-wrap;
-    }
-
-    .kv-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 12px;
-    }
-
-    .kv {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .kv-label { font-size: 11px; color: var(--text-2); }
-    .kv-value { font-size: 13px; font-feature-settings: "tnum"; }
-
-    .loading {
-      color: var(--text-2);
-      font-size: 13px;
-      padding: 20px;
-      text-align: center;
-    }
-
-    .error {
-      color: var(--red);
-      font-size: 13px;
-      padding: 20px;
-      text-align: center;
-      background: rgba(239, 68, 68, 0.06);
-      border: 1px solid rgba(239, 68, 68, 0.2);
-      border-radius: 6px;
-    }
-
     footer {
       color: var(--text-3);
       font-size: 12px;
@@ -485,19 +278,13 @@
       padding-top: 24px;
       border-top: 1px solid var(--border);
     }
-
-    footer a {
-      color: var(--text-2);
-      text-decoration: none;
-    }
-
+    footer a { color: var(--text-2); text-decoration: none; }
     footer a:hover { color: var(--text-1); }
 
     @media (max-width: 640px) {
       .container { padding: 24px 16px 60px; }
-      header { flex-direction: column; gap: 16px; }
-      header h1 { font-size: 20px; }
-      .metric-value { font-size: 18px; }
+      .hero { flex-direction: column; align-items: stretch; }
+      .hero-actions { justify-content: flex-end; }
       tbody td, thead th { padding: 10px 12px; }
     }
   </style>
@@ -506,58 +293,46 @@
   <div class="container">
     <header>
       <div>
-        <h1>equity-agent</h1>
-        <div class="subtitle">Multi-agent AI equity research · XGBoost + LangGraph (Gemini)</div>
+        <h1>AI Stock Portfolio</h1>
+        <div class="subtitle">One click. The AI analyses ~130 US stocks and buys the best picks for your budget.</div>
       </div>
-      <div class="status">
-        <span class="status-dot"></span>
-        <span id="status-text">Live</span>
-      </div>
+      <div class="status"><span class="status-dot"></span><span>Live</span></div>
     </header>
 
-    <div class="admin-bar">
-      <div class="capital-input">
-        <label for="capital-amt">Your capital</label>
-        <div class="capital-controls">
+    <div class="hero">
+      <div>
+        <div class="hero-label">Your money</div>
+        <div class="hero-input">
           <span class="dollar">$</span>
-          <input type="number" id="capital-amt" min="100" max="100000" step="100" value="500">
-          <button class="danger" id="btn-reset">Set / Reset</button>
-          <button id="btn-auto-build" title="Reset capital, then auto-buy top 5 high-confidence picks">Auto-build portfolio</button>
+          <input type="number" id="capital-amt" min="100" max="100000" step="50" value="500">
         </div>
+      </div>
+      <div class="hero-actions">
+        <button class="primary" id="btn-invest">🚀 Let AI invest</button>
+        <button class="secondary" id="btn-rebalance" title="Sell losing picks, buy new ones">Rebalance</button>
+        <button class="ghost" id="btn-reset" title="Wipe portfolio without buying anything">Reset</button>
       </div>
     </div>
 
     <section class="section">
-      <div class="section-title">Portfolio</div>
+      <div class="section-title">Your portfolio</div>
       <div id="metrics"><div class="loading">Loading…</div></div>
     </section>
 
     <section class="section">
-      <div class="section-title">Open positions</div>
+      <div class="section-title">Stocks you own</div>
       <div id="positions"><div class="loading">Loading…</div></div>
     </section>
 
     <section class="section">
-      <div class="section-title">Model accuracy · was I right?</div>
+      <div class="section-title">AI prediction score</div>
       <div id="accuracy"><div class="loading">Loading…</div></div>
     </section>
 
     <section class="section">
-      <div class="section-title">Today's watchlist · affordable within your budget</div>
-      <div class="controls" style="margin-bottom: 14px;">
-        <button id="scan-btn">Scan universe</button>
-        <span id="scan-status" class="muted"></span>
-      </div>
-      <div id="watchlist"><div class="loading">Click "Scan universe" to see today's affordable picks.</div></div>
-    </section>
-
-    <section class="section">
-      <div class="section-title">Recent trades</div>
+      <div class="section-title">What happened recently</div>
       <div id="trades"><div class="loading">Loading…</div></div>
     </section>
-
-    <!-- hidden inline analysis output, shown when a Buy row's "Details" is clicked -->
-    <div class="analysis-output" id="analysis-output" style="margin-bottom: 40px;"></div>
 
     <footer>
       <a href="/docs">API</a> · <a href="https://github.com/dheepakkaran/equity-agent" target="_blank">GitHub</a>
@@ -572,194 +347,18 @@
   <script>
   const fmtUsd = (v) => v == null ? "—" : v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
   const fmtPct = (v) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
-  const fmtNum = (v, d = 2) => v == null ? "—" : v.toLocaleString("en-US", { maximumFractionDigits: d });
   const signCls = (v) => v == null ? "" : v > 0 ? "green" : v < 0 ? "red" : "muted";
 
   async function fetchJson(url, opts = {}) {
     const r = await fetch(url, opts);
-    if (!r.ok) throw new Error(`${url} → ${r.status}`);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({ detail: r.statusText }));
+      throw new Error(j.detail || `${url} → ${r.status}`);
+    }
     return r.json();
   }
 
-  function renderMetrics(p) {
-    const el = document.getElementById("metrics");
-    el.innerHTML = `
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-label">Total value</div>
-          <div class="metric-value">${fmtUsd(p.total_value)}</div>
-          <div class="metric-sub">Initial ${fmtUsd(p.initial_capital)}</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">Cash</div>
-          <div class="metric-value">${fmtUsd(p.cash_balance)}</div>
-          <div class="metric-sub">Positions ${fmtUsd(p.positions_market_value)}</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">Total return</div>
-          <div class="metric-value ${signCls(p.total_return_usd)}">${fmtUsd(p.total_return_usd)}</div>
-          <div class="metric-sub ${signCls(p.total_return_pct)}">${fmtPct(p.total_return_pct)}</div>
-        </div>
-        <div class="metric-card">
-          <div class="metric-label">Open positions</div>
-          <div class="metric-value">${p.positions.length}</div>
-          <div class="metric-sub">
-            ${p.positions.filter(x=>x.side==='LONG').length} long · ${p.positions.filter(x=>x.side==='SHORT').length} short
-          </div>
-        </div>
-      </div>`;
-  }
-
-  function renderPositions(p) {
-    const el = document.getElementById("positions");
-    if (!p.positions.length) {
-      el.innerHTML = `<div class="loading">No open positions.</div>`;
-      return;
-    }
-    const rows = p.positions.map(pos => {
-      const pnl = pos.unrealized_pnl_pct;
-      return `
-        <tr>
-          <td><strong>${pos.ticker}</strong></td>
-          <td><span class="badge ${pos.side.toLowerCase()}">${pos.side}</span></td>
-          <td class="right num">${pos.shares.toLocaleString()}</td>
-          <td class="right num">${fmtUsd(pos.avg_entry_price)}</td>
-          <td class="right num">${fmtUsd(pos.current_price)}</td>
-          <td class="right num">${fmtUsd(pos.stop_loss)}</td>
-          <td class="right num">${fmtUsd(pos.take_profit)}</td>
-          <td class="right num ${signCls(pnl)}">${fmtPct(pnl)}</td>
-        </tr>`;
-    }).join("");
-    el.innerHTML = `
-      <div class="table-wrap"><table>
-        <thead><tr>
-          <th>Ticker</th><th>Side</th><th class="right">Shares</th>
-          <th class="right">Entry</th><th class="right">Current</th>
-          <th class="right">Stop</th><th class="right">Take</th>
-          <th class="right">P&amp;L</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>`;
-  }
-
-  function renderTrades(trades) {
-    const el = document.getElementById("trades");
-    if (!trades.length) {
-      el.innerHTML = `<div class="loading">No trades yet.</div>`;
-      return;
-    }
-    const rows = trades.slice(0, 15).map(t => `
-      <tr>
-        <td class="muted num">${new Date(t.executed_at).toLocaleString("en-US", { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" })}</td>
-        <td><strong>${t.ticker}</strong></td>
-        <td><span class="badge ${t.action.toLowerCase()}">${t.action}</span></td>
-        <td class="right num">${t.shares.toLocaleString()}</td>
-        <td class="right num">${fmtUsd(t.price)}</td>
-        <td class="right num">${fmtUsd(t.notional)}</td>
-        <td class="right num ${signCls(t.realized_pnl)}">${t.realized_pnl == null ? "—" : fmtUsd(t.realized_pnl)}</td>
-        <td class="muted">${t.source}</td>
-      </tr>`).join("");
-    el.innerHTML = `
-      <div class="table-wrap"><table>
-        <thead><tr>
-          <th>Time</th><th>Ticker</th><th>Action</th>
-          <th class="right">Shares</th><th class="right">Price</th>
-          <th class="right">Notional</th><th class="right">Realized P&amp;L</th><th>Source</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>`;
-  }
-
-  async function refreshPortfolio() {
-    try {
-      const p = await fetchJson("/portfolio");
-      renderMetrics(p);
-      renderPositions(p);
-    } catch (e) {
-      document.getElementById("metrics").innerHTML = `<div class="error">Portfolio load failed: ${e.message}</div>`;
-    }
-  }
-
-  async function refreshTrades() {
-    try {
-      const trades = await fetchJson("/portfolio/trades?limit=15");
-      renderTrades(trades);
-    } catch (e) {
-      document.getElementById("trades").innerHTML = `<div class="error">Trades load failed: ${e.message}</div>`;
-    }
-  }
-
-  async function runAnalysis() {
-    const ticker = document.getElementById("ticker-select").value;
-    const btn = document.getElementById("analyze-btn");
-    const statusEl = document.getElementById("analyze-status");
-    const out = document.getElementById("analysis-output");
-
-    btn.disabled = true;
-    statusEl.textContent = "Running (10–20s: 3 LLM calls)…";
-    out.classList.remove("visible");
-
-    try {
-      const r = await fetch(`/analyze/${ticker}`, { method: "POST" });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const a = await r.json();
-
-      const pred = a.prediction || {};
-      const risk = a.risk_assessment || {};
-      out.innerHTML = `
-        <div class="analysis-verdict">
-          <div class="analysis-ticker">${a.ticker}<span class="price">${fmtUsd(a.close)} · ${a.as_of_date || ''}</span></div>
-        </div>
-
-        <div class="analysis-section-block">
-          <h3>Final recommendation</h3>
-          <p>${(a.final_recommendation || '').replace(/\*\*/g, '')}</p>
-        </div>
-
-        <div class="analysis-section-block">
-          <h3>If you take this trade</h3>
-          <div class="kv-grid">
-            <div class="kv"><span class="kv-label">Direction</span><span class="kv-value">${pred.direction || 'n/a'} · ${pred.confidence != null ? (pred.confidence * 100).toFixed(1) + '%' : 'n/a'}</span></div>
-            <div class="kv"><span class="kv-label">Shares to buy</span><span class="kv-value">${fmtNum(risk.suggested_shares, 0)}</span></div>
-            <div class="kv"><span class="kv-label">Invest (notional)</span><span class="kv-value">${fmtUsd(risk.notional_usd)}</span></div>
-            <div class="kv"><span class="kv-label">Entry price</span><span class="kv-value">${fmtUsd(a.close)}</span></div>
-          </div>
-        </div>
-
-        <div class="analysis-section-block">
-          <h3>Expected outcome (5-day horizon)</h3>
-          <div class="kv-grid">
-            <div class="kv"><span class="kv-label">Take-profit target</span><span class="kv-value">${fmtUsd(risk.take_profit)}</span></div>
-            <div class="kv"><span class="kv-label">Stop-loss level</span><span class="kv-value">${fmtUsd(risk.stop_loss)}</span></div>
-            <div class="kv"><span class="kv-label">Max potential gain</span><span class="kv-value green">${fmtUsd(risk.max_potential_gain_usd)} (${fmtPct(risk.expected_return_pct)})</span></div>
-            <div class="kv"><span class="kv-label">Max potential loss</span><span class="kv-value red">-${fmtUsd(Math.abs(risk.max_potential_loss_usd))} (-${(risk.max_loss_pct || 0).toFixed(2)}%)</span></div>
-          </div>
-          ${risk.skip_reason ? `<p class="muted" style="margin-top:12px;">${risk.skip_reason}</p>` : ''}
-        </div>
-
-        <div class="analysis-section-block">
-          <h3>Technical analysis</h3>
-          <p>${a.technical_analysis || 'n/a'}</p>
-        </div>
-
-        <div class="analysis-section-block">
-          <h3>News sentiment</h3>
-          <p>${a.news_summary || 'n/a'}</p>
-        </div>
-      `;
-      out.classList.add("visible");
-      statusEl.textContent = "";
-    } catch (e) {
-      out.innerHTML = `<div class="error">Analysis failed: ${e.message}</div>`;
-      out.classList.add("visible");
-      statusEl.textContent = "";
-    } finally {
-      btn.disabled = false;
-    }
-  }
-
-  // Toast
-  function toast(kind, title, body, ms = 4000) {
+  function toast(kind, title, body, ms = 4500) {
     const t = document.getElementById("toast");
     document.getElementById("toast-title").textContent = title;
     document.getElementById("toast-body").textContent = body;
@@ -768,232 +367,203 @@
     toast._t = setTimeout(() => { t.className = `toast ${kind}`; }, ms);
   }
 
-  // Reset portfolio with configured capital, then auto-run scan
-  async function adminReset() {
-    const amt = parseFloat(document.getElementById("capital-amt").value);
-    if (!amt || amt < 100 || amt > 100000) {
-      toast("error", "Invalid amount", "Enter capital between $100 and $100,000");
+  function renderMetrics(p) {
+    document.getElementById("metrics").innerHTML = `
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">Portfolio worth</div>
+          <div class="metric-value">${fmtUsd(p.total_value)}</div>
+          <div class="metric-sub">Started with ${fmtUsd(p.initial_capital)}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Profit / loss</div>
+          <div class="metric-value ${signCls(p.total_return_usd)}">${p.total_return_usd >= 0 ? "+" : ""}${fmtUsd(p.total_return_usd)}</div>
+          <div class="metric-sub ${signCls(p.total_return_pct)}">${fmtPct(p.total_return_pct)}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Cash available</div>
+          <div class="metric-value">${fmtUsd(p.cash_balance)}</div>
+          <div class="metric-sub">Not invested yet</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Stocks owned</div>
+          <div class="metric-value">${p.positions.length}</div>
+          <div class="metric-sub">${p.positions.length === 0 ? "Click Let AI invest to start" : "positions open"}</div>
+        </div>
+      </div>`;
+  }
+
+  function renderPositions(p) {
+    const el = document.getElementById("positions");
+    if (!p.positions.length) {
+      el.innerHTML = `<div class="empty">No stocks yet. Set your money above and hit “Let AI invest”.</div>`;
       return;
     }
-    if (!confirm(`Reset portfolio to $${amt.toLocaleString()}? All positions, trades, and snapshots will be wiped.`)) return;
+    const rows = p.positions.map(pos => {
+      const pnl = pos.unrealized_pnl_pct;
+      const gainTom = pos.expected_gain_tomorrow_usd;
+      return `
+        <tr>
+          <td><strong>${pos.ticker}</strong></td>
+          <td class="right num">${pos.shares.toLocaleString()}</td>
+          <td class="right num">${fmtUsd(pos.avg_entry_price)}</td>
+          <td class="right num">${fmtUsd(pos.current_price)}</td>
+          <td class="right num muted">${fmtUsd(pos.predicted_price_tomorrow)}</td>
+          <td class="right num ${signCls(gainTom)}">${gainTom != null ? (gainTom >= 0 ? "+" : "") + fmtUsd(gainTom) : "—"}</td>
+          <td class="right num ${signCls(pnl)}">${fmtPct(pnl)}</td>
+          <td class="right num green">${(pos.rewards_earned || 0)} pts</td>
+        </tr>`;
+    }).join("");
+    el.innerHTML = `
+      <div class="table-wrap"><table>
+        <thead><tr>
+          <th>Stock</th>
+          <th class="right">Shares</th>
+          <th class="right">Bought at</th>
+          <th class="right">Today</th>
+          <th class="right">AI expects tomorrow</th>
+          <th class="right">Predicted gain tomorrow</th>
+          <th class="right">Profit / loss</th>
+          <th class="right">Reward points</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+  }
+
+  function renderAccuracy(a) {
+    const el = document.getElementById("accuracy");
+    if (!a.total_evaluated) {
+      el.innerHTML = `<div class="empty">The AI has made predictions today. Results will start scoring in ~7 days once market data confirms them.</div>`;
+      return;
+    }
+    el.innerHTML = `
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-label">Accuracy so far</div>
+          <div class="metric-value ${a.overall_accuracy_pct >= 50 ? 'green' : 'red'}">${a.overall_accuracy_pct.toFixed(1)}%</div>
+          <div class="metric-sub">${a.correct} correct out of ${a.total_evaluated}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Reward points earned</div>
+          <div class="metric-value green">${(a.reward_points || 0).toLocaleString()}</div>
+          <div class="metric-sub">+10 per correct, +5 bonus on high-confidence hits</div>
+        </div>
+      </div>`;
+  }
+
+  function renderTrades(trades) {
+    const el = document.getElementById("trades");
+    if (!trades.length) {
+      el.innerHTML = `<div class="empty">No trades yet.</div>`;
+      return;
+    }
+    const rows = trades.slice(0, 12).map(t => {
+      const label = { BUY: "Bought", SELL: "Sold", SHORT: "Shorted", COVER: "Covered" }[t.action] || t.action;
+      const cls = { BUY: "green", COVER: "green", SELL: "red", SHORT: "red" }[t.action] || "";
+      return `
+        <tr>
+          <td class="muted">${new Date(t.executed_at).toLocaleString("en-US", { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" })}</td>
+          <td><strong>${t.ticker}</strong></td>
+          <td class="${cls}">${label}</td>
+          <td class="right num">${t.shares.toLocaleString()}</td>
+          <td class="right num">${fmtUsd(t.price)}</td>
+          <td class="right num ${signCls(t.realized_pnl)}">${t.realized_pnl == null ? "—" : fmtUsd(t.realized_pnl)}</td>
+        </tr>`;
+    }).join("");
+    el.innerHTML = `
+      <div class="table-wrap"><table>
+        <thead><tr>
+          <th>When</th><th>Stock</th><th>What</th>
+          <th class="right">Shares</th><th class="right">Price</th>
+          <th class="right">Profit realised</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+  }
+
+  async function refreshPortfolio() {
+    try { renderMetrics(await fetchJson("/portfolio")); renderPositions(await fetchJson("/portfolio")); }
+    catch (e) { document.getElementById("metrics").innerHTML = `<div class="error">${e.message}</div>`; }
+  }
+  async function refreshTrades() {
+    try { renderTrades(await fetchJson("/portfolio/trades?limit=15")); }
+    catch (e) { document.getElementById("trades").innerHTML = `<div class="error">${e.message}</div>`; }
+  }
+  async function refreshAccuracy() {
+    try { renderAccuracy(await fetchJson("/portfolio/accuracy")); }
+    catch (e) { document.getElementById("accuracy").innerHTML = `<div class="error">${e.message}</div>`; }
+  }
+
+  function currentBudget() {
+    const v = parseFloat(document.getElementById("capital-amt").value);
+    if (!v || v < 100 || v > 100000) return null;
+    return v;
+  }
+
+  async function invest() {
+    const amt = currentBudget();
+    if (amt == null) { toast("error", "Enter an amount", "Between $100 and $100,000"); return; }
+    if (!confirm(`Let the AI invest $${amt.toLocaleString()} for you? Any existing positions will be reset first.`)) return;
+
+    const btn = document.getElementById("btn-invest");
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = "Analysing…";
     try {
-      const r = await fetch("/portfolio/reset", {
+      const j = await fetchJson(`/portfolio/auto-build?budget=${amt}&max_positions=5&min_confidence=0.55`, { method: "POST" });
+      if (!j.executed || j.executed.length === 0) {
+        toast("error", "No trades made", j.skipped_reason || "No qualifying picks");
+      } else {
+        const stocks = j.executed.map(t => t.ticker).join(", ");
+        toast("success", `Bought ${j.executed.length} stocks`, `${stocks} · ${fmtUsd(j.total_notional_deployed)} invested`);
+      }
+      await Promise.all([refreshPortfolio(), refreshTrades(), refreshAccuracy()]);
+    } catch (e) {
+      toast("error", "Investment failed", e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  }
+
+  async function rebalance() {
+    if (!confirm("Rebalance now? Losers get closed and remaining cash buys the AI's best fresh picks.")) return;
+    const btn = document.getElementById("btn-rebalance");
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = "Rebalancing…";
+    try {
+      const j = await fetchJson("/portfolio/rebalance?max_new_positions=3&min_confidence=0.60", { method: "POST" });
+      const closed = (j.enforcement_actions || []).length;
+      const opened = (j.new_positions || []).length;
+      toast("success", "Done", `${closed} closed · ${opened} new`);
+      await Promise.all([refreshPortfolio(), refreshTrades(), refreshAccuracy()]);
+    } catch (e) {
+      toast("error", "Rebalance failed", e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  }
+
+  async function reset() {
+    const amt = currentBudget();
+    if (amt == null) { toast("error", "Enter an amount", "Between $100 and $100,000"); return; }
+    if (!confirm(`Reset the portfolio to $${amt.toLocaleString()} and clear everything? No trades will be made.`)) return;
+    try {
+      await fetchJson("/portfolio/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ initial_capital: amt }),
       });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      toast("success", "Portfolio reset", `Cash set to ${fmtUsd(amt)} — scanning for picks…`);
+      toast("success", "Reset", `Portfolio set to ${fmtUsd(amt)}`);
       await Promise.all([refreshPortfolio(), refreshTrades(), refreshAccuracy()]);
-      // Auto-run scan after reset so watchlist immediately reflects new budget
-      await runScan();
     } catch (e) { toast("error", "Reset failed", e.message); }
   }
-  document.getElementById("btn-reset").addEventListener("click", adminReset);
 
-  // Auto-build portfolio: reset + scan + buy top 5 high-confidence UP picks
-  async function autoBuild() {
-    const amt = parseFloat(document.getElementById("capital-amt").value);
-    if (!amt || amt < 100 || amt > 100000) {
-      toast("error", "Invalid amount", "Enter capital between $100 and $100,000");
-      return;
-    }
-    if (!confirm(`Auto-build a portfolio with $${amt.toLocaleString()}? Existing positions will be reset first, then the top ~5 high-confidence UP picks will be bought.`)) return;
-
-    const btn = document.getElementById("btn-auto-build");
-    btn.disabled = true;
-    const originalLabel = btn.textContent;
-    btn.textContent = "Building…";
-    try {
-      const r = await fetch(`/portfolio/auto-build?budget=${amt}&max_positions=5&min_confidence=0.55`, { method: "POST" });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
-
-      if (!j.executed || j.executed.length === 0) {
-        toast("error", "No trades", j.skipped_reason || "No qualifying picks");
-      } else {
-        const tickerList = j.executed.map(t => `${t.ticker} (${t.shares})`).join(", ");
-        toast(
-          "success",
-          `Auto-built ${j.executed.length} positions`,
-          `${tickerList} · ${fmtUsd(j.total_notional_deployed)} deployed`,
-          7000,
-        );
-      }
-      await Promise.all([refreshPortfolio(), refreshTrades(), refreshAccuracy(), runScan()]);
-    } catch (e) {
-      toast("error", "Auto-build failed", e.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = originalLabel;
-    }
-  }
-  document.getElementById("btn-auto-build").addEventListener("click", autoBuild);
-
-  // Accuracy panel
-  function renderAccuracy(a) {
-    const el = document.getElementById("accuracy");
-    if (!a.total_evaluated) {
-      el.innerHTML = `<div class="loading">No evaluated predictions yet. Predictions made today will be scored ~7 days from now (5 trading days).</div>`;
-      return;
-    }
-    const top3 = a.per_ticker.slice(0, 3);
-    const bottom3 = a.per_ticker.slice(-3).reverse();
-    const bestStr = top3.map(t => `${t.ticker} ${t.accuracy_pct.toFixed(0)}%`).join(" · ");
-    const worstStr = bottom3.map(t => `${t.ticker} ${t.accuracy_pct.toFixed(0)}%`).join(" · ");
-    el.innerHTML = `
-      <div class="accuracy-grid">
-        <div class="accuracy-card">
-          <div class="accuracy-label">Overall accuracy</div>
-          <div class="accuracy-value ${a.overall_accuracy_pct >= 50 ? 'green' : 'red'}">${a.overall_accuracy_pct.toFixed(1)}%</div>
-          <div class="accuracy-sub">${a.correct} / ${a.total_evaluated} predictions correct</div>
-        </div>
-        <div class="accuracy-card">
-          <div class="accuracy-label">Reward points</div>
-          <div class="accuracy-value green">${(a.reward_points || 0).toLocaleString()}</div>
-          <div class="accuracy-sub">10 per correct + 5 bonus for high-confidence hits</div>
-        </div>
-        <div class="accuracy-card">
-          <div class="accuracy-label">Best tickers</div>
-          <div class="accuracy-value green" style="font-size: 14px;">${bestStr || '—'}</div>
-        </div>
-        <div class="accuracy-card">
-          <div class="accuracy-label">Worst tickers</div>
-          <div class="accuracy-value red" style="font-size: 14px;">${worstStr || '—'}</div>
-        </div>
-      </div>`;
-  }
-  async function refreshAccuracy() {
-    try {
-      const a = await fetchJson("/portfolio/accuracy");
-      renderAccuracy(a);
-    } catch (e) {
-      document.getElementById("accuracy").innerHTML = `<div class="error">Accuracy load failed: ${e.message}</div>`;
-    }
-  }
-
-  // Watchlist scan
-  function signalClass(s) {
-    return "signal-" + s.toLowerCase().replace(/_/g, "-");
-  }
-  function rowClass(s) {
-    if (s === "STRONG_BUY") return "row-strong-buy";
-    if (s === "STRONG_AVOID") return "row-strong-avoid";
-    return "";
-  }
-  function signalLabel(s) {
-    return s.replace(/_/g, " ");
-  }
-  function renderWatchlist(data) {
-    const el = document.getElementById("watchlist");
-    if (!data.results.length) {
-      el.innerHTML = `<div class="loading">No affordable tickers found in your $${data.budget} budget. Try increasing capital.</div>`;
-      return;
-    }
-    const rows = data.results.map(r => {
-      const actionBtn = r.direction === "UP"
-        ? `<button class="row-buy" data-ticker="${r.ticker}">Buy</button>`
-        : `<button class="row-buy secondary" data-ticker="${r.ticker}" data-action="short">Short</button>`;
-      return `
-      <tr class="${rowClass(r.signal)}">
-        <td><strong>${r.ticker}</strong></td>
-        <td><span class="signal-badge ${signalClass(r.signal)}">${signalLabel(r.signal)}</span></td>
-        <td><span class="badge ${r.direction.toLowerCase()}">${r.direction}</span></td>
-        <td class="right num">${(r.confidence * 100).toFixed(1)}%</td>
-        <td class="right num ${r.trust_score >= 0 ? 'green' : 'red'}">${(r.trust_score * 100).toFixed(1)}%</td>
-        <td class="right num">${fmtUsd(r.current_price)}</td>
-        <td class="right num">${fmtUsd(r.predicted_price_target)}</td>
-        <td class="right num">${r.max_shares_affordable}</td>
-        <td class="right num ${signCls(r.expected_5d_return_pct)}">${fmtPct(r.expected_5d_return_pct)}</td>
-        <td class="right num ${signCls(r.expected_gain_usd)}">${fmtUsd(r.expected_gain_usd)}</td>
-        <td class="right">${actionBtn}</td>
-      </tr>`;
-    }).join("");
-    el.innerHTML = `
-      <div class="muted" style="font-size: 12px; margin-bottom: 8px;">
-        Scanned ${data.total_scanned} tickers · ${data.affordable_count} affordable within $${data.budget}
-      </div>
-      <div class="table-wrap"><table>
-        <thead><tr>
-          <th>Ticker</th><th>Signal</th><th>Direction</th>
-          <th class="right">Conf</th><th class="right">Trust</th>
-          <th class="right">Now</th><th class="right">Target (5d)</th><th class="right">Max shares</th>
-          <th class="right">Exp 5d %</th><th class="right">Exp gain</th>
-          <th class="right">Action</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>`;
-
-    // Wire Buy / Short buttons on the newly-inserted rows
-    // Use the row's pre-computed shares + price for fast execution (no re-analysis).
-    // Compute simple stop-loss / take-profit derived from expected return so the
-    // daily-close automation can close the position on its own.
-    el.querySelectorAll(".row-buy").forEach(btn => {
-      const rowData = data.results.find(x => x.ticker === btn.dataset.ticker);
-      btn.addEventListener("click", async () => {
-        if (!rowData || rowData.max_shares_affordable < 1) {
-          toast("error", "Not tradable", "No affordable shares for this ticker");
-          return;
-        }
-        const isShort = rowData.direction === "DOWN";
-        const action = isShort ? "SHORT" : "BUY";
-        const shares = rowData.max_shares_affordable;
-        const price = rowData.current_price;
-
-        // Derive stops: LONG stop 3% below entry, take 5% above; SHORT reversed
-        const stopLoss = isShort ? price * 1.03 : price * 0.97;
-        const takeProfit = isShort ? price * 0.95 : price * 1.05;
-
-        btn.disabled = true;
-        const originalLabel = btn.textContent;
-        btn.textContent = "…";
-        try {
-          const r = await fetch("/portfolio/trade", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ticker: rowData.ticker,
-              action,
-              shares,
-              stop_loss: Number(stopLoss.toFixed(2)),
-              take_profit: Number(takeProfit.toFixed(2)),
-            }),
-          });
-          const j = await r.json();
-          if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
-          toast(
-            "success",
-            `${action} ${rowData.ticker}`,
-            `${shares} shares @ ${fmtUsd(price)} · target ${fmtUsd(takeProfit)} · stop ${fmtUsd(stopLoss)}`
-          );
-          await Promise.all([refreshPortfolio(), refreshTrades()]);
-        } catch (e) {
-          toast("error", "Trade failed", e.message);
-        } finally {
-          btn.disabled = false;
-          btn.textContent = originalLabel;
-        }
-      });
-    });
-  }
-  async function runScan() {
-    const budget = parseFloat(document.getElementById("capital-amt").value) || 500;
-    const btn = document.getElementById("scan-btn");
-    const st = document.getElementById("scan-status");
-    btn.disabled = true;
-    st.textContent = `Scanning ${budget.toLocaleString()} USD budget across ~50 tickers…`;
-    try {
-      const data = await fetchJson(`/scan?budget=${budget}&include_weak=false&limit=50`);
-      renderWatchlist(data);
-      st.textContent = "";
-    } catch (e) {
-      document.getElementById("watchlist").innerHTML = `<div class="error">Scan failed: ${e.message}</div>`;
-      st.textContent = "";
-    } finally {
-      btn.disabled = false;
-    }
-  }
-  document.getElementById("scan-btn").addEventListener("click", runScan);
+  document.getElementById("btn-invest").addEventListener("click", invest);
+  document.getElementById("btn-rebalance").addEventListener("click", rebalance);
+  document.getElementById("btn-reset").addEventListener("click", reset);
 
   refreshPortfolio();
   refreshTrades();

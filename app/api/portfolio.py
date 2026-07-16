@@ -249,6 +249,98 @@ async def auto_build_portfolio(
     }
 
 
+@router.post("/rebalance")
+async def rebalance(
+    max_new_positions: int = Query(3, ge=1, le=10, description="How many fresh top picks to buy"),
+    min_confidence: float = Query(0.60, ge=0.5, le=0.95),
+    db: Session = Depends(get_db),
+):
+    """Daily rebalance: enforce stops on all open positions, then top up with
+    fresh high-confidence UP picks using whatever cash is available.
+
+    Meant to run daily (via cron / GitHub Actions or the dashboard button).
+    Together with the daily-close automation, this keeps the portfolio
+    tilted toward the model's current best signals.
+    """
+    portfolio = get_or_create_portfolio(db)
+
+    # 1) Close positions that crossed their stop_loss / take_profit
+    enforcement_actions = enforce_stops(db, portfolio)
+    db.refresh(portfolio)
+
+    # 2) Use remaining cash to buy fresh top picks (skip tickers already held)
+    available_cash = float(portfolio.cash_balance)
+    executed_buys: list[dict] = []
+    skipped: list[dict] = []
+
+    if available_cash < 100:
+        return {
+            "enforcement_actions": enforcement_actions,
+            "new_positions": [],
+            "skipped": [{"reason": f"cash ${available_cash:.2f} < $100 minimum"}],
+            "portfolio_after": PortfolioSummary(**build_summary(db, portfolio)),
+        }
+
+    scan = scan_universe(db, budget=available_cash, include_weak=False, limit=50)
+    held_tickers = {p.ticker for p in portfolio.positions}
+    fresh_picks = [
+        r for r in scan["results"]
+        if r["direction"] == "UP"
+        and r["confidence"] >= min_confidence
+        and r["ticker"] not in held_tickers
+    ][:max_new_positions]
+
+    if not fresh_picks:
+        return {
+            "enforcement_actions": enforcement_actions,
+            "new_positions": [],
+            "skipped": [{"reason": f"no UP picks >= {min_confidence*100:.0f}% confidence not already held"}],
+            "portfolio_after": PortfolioSummary(**build_summary(db, portfolio)),
+        }
+
+    total_conf = sum(p["confidence"] for p in fresh_picks) or 1.0
+    for pick in fresh_picks:
+        allocation = available_cash * (pick["confidence"] / total_conf)
+        price = pick["current_price"]
+        shares = int(allocation / price) if price > 0 else 0
+        if shares < 1:
+            skipped.append({"ticker": pick["ticker"], "reason": "allocation < 1 share"})
+            continue
+
+        stop_loss = round(price * 0.97, 2)
+        take_profit = round(price * 1.05, 2)
+        try:
+            trade = execute_trade(
+                db,
+                portfolio_id=portfolio.id,
+                ticker=pick["ticker"],
+                action="BUY",
+                shares=shares,
+                price=price,
+                stop_loss=stop_loss,
+                take_profit=take_profit,
+                source="rebalance",
+            )
+            executed_buys.append({
+                "ticker": pick["ticker"],
+                "shares": trade.shares,
+                "price": trade.price,
+                "notional": trade.notional,
+                "confidence": pick["confidence"],
+                "predicted_price_target": pick["predicted_price_target"],
+            })
+        except PortfolioError as exc:
+            skipped.append({"ticker": pick["ticker"], "reason": str(exc)})
+
+    db.refresh(portfolio)
+    return {
+        "enforcement_actions": enforcement_actions,
+        "new_positions": executed_buys,
+        "skipped": skipped,
+        "portfolio_after": PortfolioSummary(**build_summary(db, portfolio)),
+    }
+
+
 @router.post("/enforce-stops", response_model=EnforcementResult)
 async def enforce(db: Session = Depends(get_db)):
     """Scan open positions, close any where price crossed stop_loss or take_profit.

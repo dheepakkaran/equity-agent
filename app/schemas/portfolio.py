@@ -50,6 +50,9 @@ class PositionOut(BaseModel):
     market_value: float | None
     unrealized_pnl: float | None
     unrealized_pnl_pct: float | None
+    predicted_price_tomorrow: float | None = None
+    expected_gain_tomorrow_usd: float | None = None
+    rewards_earned: int = 0
     opened_at: datetime
 
 
