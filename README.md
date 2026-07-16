@@ -1,24 +1,32 @@
----
-title: Equity Agent
-emoji: 📈
-colorFrom: blue
-colorTo: purple
-sdk: docker
-app_port: 7860
-pinned: false
-license: mit
-short_description: Multi-agent AI equity research with XGBoost + LangGraph (Gemini)
----
+<h1 align="center">📈 equity-agent</h1>
 
-# equity-agent
+<p align="center">
+  <b>One click. AI picks your stocks. Watch profit daily.</b>
+</p>
 
-### One click. AI picks your stocks. Watch profit daily.
+<p align="center">
+  An autonomous, end-to-end paper-trading system that scans ~130 US stocks,
+  runs an XGBoost prediction on each, layers on LLM-driven technical and news
+  analysis, and buys the highest-conviction picks that fit your budget —
+  all without you touching a single terminal.
+</p>
 
-An autonomous, end-to-end paper-trading system that scans ~130 US stocks, runs an XGBoost prediction on each, layers on LLM-driven technical and news analysis, and buys the highest-conviction picks that fit your budget — all without you touching a single terminal.
+<p align="center">
+  <a href="https://equity-agent-2lpa.onrender.com"><b>🎯 Live demo</b></a> &nbsp;·&nbsp;
+  <a href="https://equity-agent-2lpa.onrender.com/docs"><b>📚 API docs</b></a> &nbsp;·&nbsp;
+  <a href="#local-setup"><b>🛠️ Run locally</b></a>
+</p>
 
-> 🎯 **Live demo →** [equity-agent-2lpa.onrender.com](https://equity-agent-2lpa.onrender.com)
-> 📚 **API docs →** [equity-agent-2lpa.onrender.com/docs](https://equity-agent-2lpa.onrender.com/docs)
-> 🔒 **Passcode-protected** — personal single-user hosting
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.12-blue.svg" alt="Python 3.12"/>
+  <img src="https://img.shields.io/badge/framework-FastAPI-009688.svg" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/ML-XGBoost-006400.svg" alt="XGBoost"/>
+  <img src="https://img.shields.io/badge/LLM-Gemini%202.5-4285F4.svg" alt="Gemini 2.5"/>
+  <img src="https://img.shields.io/badge/agents-LangGraph-FF9500.svg" alt="LangGraph"/>
+  <img src="https://img.shields.io/badge/db-Postgres-336791.svg" alt="Postgres"/>
+  <img src="https://img.shields.io/badge/deploy-Render-46E3B7.svg" alt="Render"/>
+  <img src="https://img.shields.io/badge/license-MIT-lightgrey.svg" alt="MIT"/>
+</p>
 
 ---
 
