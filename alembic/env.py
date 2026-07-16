@@ -16,7 +16,7 @@ load_dotenv()
 
 # Import models so Alembic can detect them for autogenerate
 from app.database import Base  # noqa: E402
-from app.models import portfolio, stock  # noqa: E402, F401
+from app.models import portfolio, prediction, stock  # noqa: E402, F401
 
 # Alembic Config object
 config = context.config
