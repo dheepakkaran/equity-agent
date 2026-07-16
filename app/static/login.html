@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in · equity-agent</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface-2: #1c1c1c;
+      --border: #262626;
+      --text-1: #fafafa;
+      --text-2: #a1a1aa;
+      --green: #10b981;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { color-scheme: dark; }
+    body {
+      background: var(--bg);
+      color: var(--text-1);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 36px 32px;
+      width: 100%;
+      max-width: 380px;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: var(--text-2);
+      font-size: 13px;
+      margin-bottom: 28px;
+    }
+    label {
+      display: block;
+      font-size: 11px;
+      color: var(--text-2);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+    input[type=password] {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-1);
+      padding: 12px 14px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 15px;
+      outline: none;
+      margin-bottom: 16px;
+    }
+    input[type=password]:focus { border-color: var(--green); }
+    button {
+      width: 100%;
+      background: var(--green);
+      color: #0a0a0a;
+      border: none;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    button:hover:not(:disabled) { background: #34d399; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .error {
+      color: var(--red);
+      background: rgba(239, 68, 68, 0.06);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 12px;
+      margin-bottom: 12px;
+      display: none;
+    }
+    .error.visible { display: block; }
+    .footer {
+      color: var(--text-2);
+      font-size: 12px;
+      text-align: center;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>AI Stock Portfolio</h1>
+    <div class="subtitle">Enter your passcode to continue.</div>
+    <div class="error" id="err"></div>
+    <form id="form">
+      <label for="pc">Passcode</label>
+      <input id="pc" type="password" autofocus autocomplete="current-password" required />
+      <button type="submit" id="btn">Sign in</button>
+    </form>
+    <div class="footer">Personal, private dashboard.</div>
+  </div>
+
+  <script>
+    const form = document.getElementById("form");
+    const btn = document.getElementById("btn");
+    const err = document.getElementById("err");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      err.classList.remove("visible");
+      const pc = document.getElementById("pc").value;
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = "Signing in…";
+      try {
+        const r = await fetch("/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ passcode: pc }),
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          throw new Error(j.detail || `HTTP ${r.status}`);
+        }
+        window.location.href = "/";
+      } catch (e) {
+        err.textContent = e.message === "Wrong passcode" ? "Wrong passcode. Try again." : e.message;
+        err.classList.add("visible");
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+  </script>
+</body>
+</html>

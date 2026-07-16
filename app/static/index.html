@@ -335,7 +335,7 @@
     </section>
 
     <footer>
-      <a href="/docs">API</a> · <a href="https://github.com/dheepakkaran/equity-agent" target="_blank">GitHub</a>
+      <a href="/docs">API</a> · <a href="https://github.com/dheepakkaran/equity-agent" target="_blank">GitHub</a> · <a href="#" id="logout-link">Sign out</a>
     </footer>
   </div>
 
@@ -564,6 +564,13 @@
   document.getElementById("btn-invest").addEventListener("click", invest);
   document.getElementById("btn-rebalance").addEventListener("click", rebalance);
   document.getElementById("btn-reset").addEventListener("click", reset);
+  document.getElementById("logout-link").addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      await fetch("/auth/logout", { method: "POST" });
+    } catch {}
+    window.location.href = "/login";
+  });
 
   refreshPortfolio();
   refreshTrades();
