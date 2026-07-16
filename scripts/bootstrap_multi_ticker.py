@@ -1,12 +1,12 @@
-"""Bootstrap the paper trading portfolio across multiple tickers.
+"""Bootstrap the paper trading portfolio across all tracked tickers.
 
 For each ticker, in order:
-    1. Ingest 730 days of OHLCV
-    2. Train an XGBoost next-day-direction model
-    3. Run /portfolio/execute — analyze via multi-agent, auto-execute the trade
+    1. Ingest 10 years of OHLCV
+    2. Train an XGBoost 5-day-direction model
+    3. Run /portfolio/execute — full multi-agent analysis + auto-trade
 
-Requires uvicorn running locally on :8000 with a fresh $1M portfolio.
-Reset the portfolio first if you have stale positions:
+Requires uvicorn running locally on :8000. Reset the portfolio first if you
+have stale positions:
     POST http://localhost:8000/portfolio/reset
 
 Run:
@@ -16,16 +16,19 @@ from __future__ import annotations
 
 import sys
 import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import httpx
 
-BASE_URL = "http://localhost:8000"
-TICKERS = [
-    "SPY", "QQQ", "AAPL", "MSFT", "NVDA",
-    "GOOGL", "META", "TSLA", "AMZN", "AMD",
-]
+from app.tickers import TOP_TICKERS
 
-TIMEOUT = httpx.Timeout(60.0, connect=10.0)
+BASE_URL = "http://localhost:8000"
+TICKERS = TOP_TICKERS
+DAYS = 3650
+
+TIMEOUT = httpx.Timeout(120.0, connect=10.0)
 
 
 def _pretty_usd(x: float) -> str:
@@ -33,18 +36,15 @@ def _pretty_usd(x: float) -> str:
 
 
 def _step(client: httpx.Client, ticker: str) -> dict:
-    """Run the 3 steps for one ticker and return a summary dict."""
     summary: dict = {"ticker": ticker}
 
-    # 1. Ingest
-    r = client.get(f"{BASE_URL}/stocks/{ticker}", params={"days": 730})
+    r = client.get(f"{BASE_URL}/stocks/{ticker}", params={"days": DAYS})
     if r.status_code != 200:
         summary["error"] = f"ingest_{r.status_code}: {r.text[:200]}"
         return summary
     ingested = r.json()
     summary["rows_ingested"] = ingested.get("count", 0)
 
-    # 2. Train
     r = client.post(f"{BASE_URL}/predict/{ticker}/train")
     if r.status_code != 200:
         summary["error"] = f"train_{r.status_code}: {r.text[:200]}"
@@ -52,7 +52,6 @@ def _step(client: httpx.Client, ticker: str) -> dict:
     train = r.json()
     summary["accuracy"] = train.get("metrics", {}).get("accuracy")
 
-    # 3. Analyze + execute
     r = client.post(f"{BASE_URL}/portfolio/execute/{ticker}")
     if r.status_code != 200:
         summary["error"] = f"execute_{r.status_code}: {r.text[:200]}"
@@ -72,10 +71,9 @@ def _step(client: httpx.Client, ticker: str) -> dict:
 
 
 def main() -> None:
-    print(f"Bootstrapping portfolio across {len(TICKERS)} tickers...\n")
+    print(f"Bootstrapping portfolio across {len(TICKERS)} tickers ({DAYS} days of history)...\n")
 
     with httpx.Client(timeout=TIMEOUT) as client:
-        # Health check first
         try:
             r = client.get(f"{BASE_URL}/health")
             r.raise_for_status()
@@ -105,7 +103,6 @@ def main() -> None:
                 else:
                     print(f"    SKIP ({elapsed:.1f}s): acc={acc_str}, {summary['reason']}")
 
-        # Final portfolio snapshot
         print("\nFinal portfolio state:")
         r = client.get(f"{BASE_URL}/portfolio")
         r.raise_for_status()
@@ -117,17 +114,6 @@ def main() -> None:
         print(f"  Total value:          {_pretty_usd(p['total_value'])}")
         print(f"  Total return:         {_pretty_usd(p['total_return_usd'])} ({p['total_return_pct']:.4f}%)")
         print(f"  Open positions:       {len(p['positions'])}")
-        if p["positions"]:
-            print()
-            print(f"  {'Ticker':<8} {'Side':<6} {'Shares':>8} {'Entry':>10} {'Current':>10} {'PnL %':>8}")
-            print(f"  {'-'*8} {'-'*6} {'-'*8} {'-'*10} {'-'*10} {'-'*8}")
-            for pos in p["positions"]:
-                pnl = pos.get("unrealized_pnl_pct") or 0.0
-                cur = pos.get("current_price") or 0.0
-                print(
-                    f"  {pos['ticker']:<8} {pos['side']:<6} {pos['shares']:>8} "
-                    f"{pos['avg_entry_price']:>10.2f} {cur:>10.2f} {pnl:>7.2f}%"
-                )
 
 
 if __name__ == "__main__":

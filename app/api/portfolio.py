@@ -1,15 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.agents.coordinator import run_analysis
 from app.database import get_db
 from app.models.portfolio import Trade
+from app.services.scan_service import scan_universe
 from app.schemas.portfolio import (
     EnforcementAction,
     EnforcementResult,
     ExecutionResult,
     HistoryResponse,
     PortfolioSummary,
+    ResetRequest,
     SnapshotOut,
     TradeOut,
     TradeRequest,
@@ -24,6 +26,7 @@ from app.services.portfolio_service import (
     reset_portfolio,
     take_snapshot,
 )
+from app.services.prediction_tracking import accuracy_summary
 
 router = APIRouter()
 
@@ -36,9 +39,13 @@ async def get_portfolio(db: Session = Depends(get_db)):
 
 
 @router.post("/reset", response_model=PortfolioSummary)
-async def reset(db: Session = Depends(get_db)):
-    """Wipe all positions + trades, restore cash to initial capital."""
-    portfolio = reset_portfolio(db)
+async def reset(payload: ResetRequest | None = None, db: Session = Depends(get_db)):
+    """Wipe all positions + trades + snapshots. Optionally set a new initial capital.
+
+    Body (optional): `{"initial_capital": 500}` — new starting cash in $100–$100k range.
+    """
+    initial_capital = payload.initial_capital if payload else None
+    portfolio = reset_portfolio(db, initial_capital=initial_capital)
     return PortfolioSummary(**build_summary(db, portfolio))
 
 
@@ -102,9 +109,11 @@ async def execute_recommendation(ticker: str, db: Session = Depends(get_db)):
             recommendation_direction=direction,
         )
     if shares <= 0:
+        # Prefer risk agent's contextual reason (unaffordable / low confidence)
+        skip = risk.get("skip_reason") or "Risk agent suggested 0 shares."
         return ExecutionResult(
             executed=False,
-            reason="Risk agent suggested 0 shares (confidence too low).",
+            reason=skip,
             recommendation_direction=direction,
         )
     if close is None:
@@ -150,6 +159,94 @@ async def execute_recommendation(ticker: str, db: Session = Depends(get_db)):
         recommendation_direction=direction,
         portfolio_after=PortfolioSummary(**build_summary(db, portfolio)),
     )
+
+
+@router.post("/auto-build")
+async def auto_build_portfolio(
+    budget: float = Query(500, ge=100, le=100_000, description="Total capital to invest"),
+    max_positions: int = Query(5, ge=1, le=15, description="How many stocks to spread across"),
+    min_confidence: float = Query(0.55, ge=0.5, le=0.95, description="Minimum model confidence"),
+    db: Session = Depends(get_db),
+):
+    """Reset portfolio to `budget`, scan universe, and BUY the top `max_positions`
+    high-confidence UP signals — confidence-weighted allocation across them.
+    Each position gets a 3% stop-loss and 5% take-profit derived from entry.
+    """
+    portfolio = reset_portfolio(db, initial_capital=budget)
+
+    scan = scan_universe(db, budget=budget, include_weak=False, limit=50)
+    picks = [
+        r for r in scan["results"]
+        if r["direction"] == "UP" and r["confidence"] >= min_confidence
+    ][:max_positions]
+
+    if not picks:
+        return {
+            "executed": [],
+            "skipped_reason": (
+                f"No UP-direction picks with confidence >= {min_confidence*100:.0f}% "
+                f"within a ${budget:,.0f} budget."
+            ),
+            "portfolio_after": PortfolioSummary(**build_summary(db, portfolio)),
+        }
+
+    total_conf = sum(p["confidence"] for p in picks) or 1.0
+    executed: list[dict] = []
+    skipped: list[dict] = []
+
+    for pick in picks:
+        allocation = budget * (pick["confidence"] / total_conf)
+        price = pick["current_price"]
+        shares = int(allocation / price) if price > 0 else 0
+        if shares < 1:
+            skipped.append({"ticker": pick["ticker"], "reason": "allocation < 1 share"})
+            continue
+
+        stop_loss = round(price * 0.97, 2)
+        take_profit = round(price * 1.05, 2)
+
+        try:
+            trade = execute_trade(
+                db,
+                portfolio_id=portfolio.id,
+                ticker=pick["ticker"],
+                action="BUY",
+                shares=shares,
+                price=price,
+                stop_loss=stop_loss,
+                take_profit=take_profit,
+                source="auto_build",
+            )
+        except PortfolioError as exc:
+            skipped.append({"ticker": pick["ticker"], "reason": str(exc)})
+            continue
+
+        executed.append(
+            {
+                "ticker": pick["ticker"],
+                "shares": trade.shares,
+                "price": trade.price,
+                "notional": trade.notional,
+                "stop_loss": stop_loss,
+                "take_profit": take_profit,
+                "confidence": pick["confidence"],
+                "trust_score": pick["trust_score"],
+                "predicted_price_target": pick["predicted_price_target"],
+                "expected_gain_usd": pick["expected_gain_usd"],
+                "signal": pick["signal"],
+            }
+        )
+
+    db.refresh(portfolio)
+    return {
+        "budget": budget,
+        "max_positions": max_positions,
+        "min_confidence": min_confidence,
+        "executed": executed,
+        "skipped": skipped,
+        "total_notional_deployed": round(sum(t["notional"] for t in executed), 2),
+        "portfolio_after": PortfolioSummary(**build_summary(db, portfolio)),
+    }
 
 
 @router.post("/enforce-stops", response_model=EnforcementResult)
@@ -209,6 +306,12 @@ async def history(days: int = 30, db: Session = Depends(get_db)):
         period_return_usd=period_return_usd,
         period_return_pct=period_return_pct,
     )
+
+
+@router.get("/accuracy")
+async def accuracy(db: Session = Depends(get_db)):
+    """Model track record: overall + per-ticker accuracy from evaluated predictions."""
+    return accuracy_summary(db)
 
 
 @router.get("/trades", response_model=list[TradeOut])

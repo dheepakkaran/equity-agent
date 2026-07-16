@@ -16,11 +16,13 @@ import sys
 
 import httpx
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.tickers import TOP_TICKERS
+
 BASE_URL = "http://localhost:8000"
-TICKERS = [
-    "SPY", "QQQ", "AAPL", "MSFT", "NVDA",
-    "GOOGL", "META", "TSLA", "AMZN", "AMD",
-]
+TICKERS = TOP_TICKERS
 
 TIMEOUT = httpx.Timeout(120.0, connect=10.0)
 

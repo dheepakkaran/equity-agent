@@ -30,5 +30,6 @@ class AgentState(TypedDict, total=False):
     news_summary: str
     technical_analysis: str
     risk_assessment: dict[str, Any]
+    portfolio_capital: float
     final_recommendation: str
     errors: list[str]

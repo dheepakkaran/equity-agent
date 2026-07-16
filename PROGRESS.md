@@ -1,8 +1,9 @@
 # equity-agent — Progress & Roadmap
 
-**Last updated:** 2026-07-14
+**Last updated:** 2026-07-16
 **Session summary written by:** Claude (Opus 4.7)
 **Repo:** https://github.com/dheepakkaran/equity-agent
+**Live URL:** https://equity-agent-2lpa.onrender.com
 
 ---
 
@@ -190,12 +191,91 @@ Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
 - **Zero deployment needed** — GitHub Actions runners connect directly to Neon DB. Laptop + uvicorn no longer required for daily operations.
 - **Verified 2026-07-14** — first manual run succeeded in 1m 3s. All 8 steps green.
 
-### Phase 11 — Deployment (uncommitted, 2026-07-14)
+### Phase 11 — Deployment (committed, live 2026-07-14)
 - **HF Spaces Docker path abandoned** — as of 2026 HF requires PRO subscription or billed account for Docker Spaces (Gradio/Static SDKs remain free). Switched to Render.com free tier: Docker-native, no credit card, GitHub auto-deploy.
 - `Dockerfile` — Python 3.12 slim + libpq, runs `alembic upgrade head` then uvicorn with `--proxy-headers --forwarded-allow-ips '*'` on `${PORT}`. `${PORT}` shell substitution works both locally (defaults to 7860) and on Render (Render injects PORT env var).
 - `README.md` — HF Spaces YAML frontmatter kept at top of README (Render ignores it, keeps door open if HF ever unblocks free Docker).
 - `.gitignore` — `!models/*.joblib` exception so trained XGBoost models (~290KB each) ship with the container. No retrain needed on cold start.
-- **Setup steps for Render** (see instructions below).
+- **Deployed and verified 2026-07-14** — build 65s, alembic runs on boot, `/health` responds 200. Live at https://equity-agent-2lpa.onrender.com
+
+### Phase 12 — Configurable Capital + Affordability (2026-07-14 → 2026-07-16)
+- `POST /portfolio/reset` now accepts optional body `{"initial_capital": 500}` (clamped $100–$100k). Wipes positions, trades, and snapshots so a fresh starting balance is truly fresh.
+- `DEFAULT_INITIAL_CAPITAL`: $1M → **$10k** (better default for student demos)
+- Risk agent (`app/agents/risk.py`) reads `portfolio_capital` from coordinator state instead of a hardcoded constant. Also:
+  - Auto-scaling `risk_per_trade`: **15% at ≤$1k, 8% at ≤$5k, 5% at ≤$20k, 2% above**. Small-budget demos can actually size trades now.
+  - Softer confidence curve (`conf - 0.45` instead of `conf - 0.5`) so 55% signals still produce positions.
+  - Demo floor: if the model is at least 55% confident and one share fits the total budget, guarantee at least one share.
+  - **Affordability cap**: `suggested_shares` never exceeds `int(portfolio_usd / close)`. Fixes the earlier bug where a $500 budget could still SHORT $2k of SPY because short proceeds inflated cash.
+  - Returns `expected_return_pct`, `max_potential_gain_usd`, `max_potential_loss_usd`, `skip_reason` in `risk_assessment`.
+
+### Phase 13 — Ticker Universe Expansion (2026-07-15)
+- New `app/tickers.py` with `TOP_TICKERS` — **137 US stocks + ETFs** curated for price diversity: mega-cap tech, financials, energy, healthcare, consumer, industrials, growth/meme, sector ETFs. No dotted tickers (BRK.B skipped) since yfinance handles them inconsistently.
+- All bootstrap / retrain / ingest / daily-close scripts refactored to import from `app.tickers.TOP_TICKERS`.
+- After ingest + retrain: **133 models trained successfully**, 4 failed (MRO, WBA, PARA, SQ — insufficient history for 5-day target).
+- Direction split across 133 tickers: **80 DOWN, 53 UP** — real market spread, not systemic bias.
+
+### Phase 14 — Scan Endpoint + Watchlist UI (2026-07-15)
+- `app/services/scan_service.py` — `scan_universe(db, budget, include_weak, limit)` reusable service.
+- `GET /scan?budget=X&limit=N&include_weak=false` — HTTP wrapper.
+- Logic:
+  1. Run `predict_next_day` for every ticker (fast — just XGBoost, no LLM per ticker).
+  2. Filter to tickers where `int(budget / current_price) >= 1` (at least 1 share fits).
+  3. Compute per-ticker `trust_score` (rolling accuracy) and `adjusted_confidence = raw × (0.5 + trust)`.
+  4. Classify: **STRONG_BUY** (conf ≥ 65% + adj ≥ 35%), **MODERATE_BUY** (conf ≥ 55%), **STRONG_AVOID / MODERATE_AVOID** for DOWN, else **WEAK**.
+  5. Add `predicted_price_target = current × (1 + expected_5d_return_pct/100)` — a concrete "if the model is right this ticker moves to $X in ~5 days" number.
+  6. Sort: strong signals first, then by absolute expected dollar gain (best return first).
+- Dashboard Watchlist section: renders results as a color-coded table (green rows for STRONG_BUY, red for STRONG_AVOID). Each row has a **Buy** (UP) or **Short** (DOWN) button that hits `/portfolio/trade` directly with the pre-computed shares + auto-derived stops (3% stop-loss, 5% take-profit).
+
+### Phase 15 — Prediction Tracking + Reward Points (2026-07-15 → 2026-07-16)
+- Migration `c8e9f0a1b2c3_create_prediction_outcomes.py`.
+- Model `app/models/prediction.py`:
+  - `PredictionOutcome(ticker, predicted_at, direction, confidence, close_at_prediction, target_date, actual_close_at_target, actual_return_pct, was_correct, evaluated_at, created_at)`
+  - `UNIQUE(ticker, predicted_at)` so daily records are idempotent.
+- Service `app/services/prediction_tracking.py`:
+  - `record_prediction(db, ticker)` — snapshots today's model output into DB.
+  - `evaluate_pending_predictions(db)` — for any row whose `target_date` has passed, compares stored direction with actual close and sets `was_correct`.
+  - `trust_score(db, ticker, lookback=90d)` — rolling accuracy in `[-0.5, +0.5]`.
+  - `accuracy_summary(db)` — overall accuracy + per-ticker breakdown + `reward_points` (10 per correct + 5 bonus for high-confidence >=70% hits).
+  - All functions degrade gracefully to zero/empty on missing tables (no cascading 500s).
+- `GET /portfolio/accuracy` exposes the summary.
+- Dashboard shows: overall accuracy %, reward points, best/worst tickers.
+- Daily-close script recorded and evaluates predictions each run — the loop that lets the system self-score.
+
+### Phase 16 — Dashboard Simplification (2026-07-16)
+- Removed manual "Trade" section (AI-driven + Manual tabs) — clutter.
+- Removed admin "Take snapshot" / "Enforce stops" buttons — these run via GitHub Actions cron, no user action needed.
+- **Watchlist Buy button switched from `/portfolio/execute` (slow, 3 LLM calls, ~15s) to `/portfolio/trade` (fast, ~200ms).** Also passes derived stop-loss / take-profit so daily-close automation can exit positions.
+- Set/Reset auto-runs a scan afterward — watchlist immediately reflects the new budget.
+
+### Phase 17 — Auto-Build Portfolio (2026-07-16)
+- `POST /portfolio/auto-build?budget=X&max_positions=5&min_confidence=0.55` — one-click portfolio construction:
+  1. Reset portfolio to `budget`.
+  2. Run `scan_universe`.
+  3. Filter to `direction == "UP"` and `confidence >= min_confidence`, take top `max_positions`.
+  4. Allocate budget **confidence-weighted** (higher-confidence picks get proportionally more capital).
+  5. Execute BUY for each with 3% stop-loss + 5% take-profit.
+- Response includes list of `executed` trades, `skipped` reasons, `total_notional_deployed`, and full `portfolio_after` summary.
+- Dashboard "Auto-build portfolio" button next to Set/Reset triggers this and refreshes all panels.
+- Watchlist now shows **"Target (5d)"** column — concrete predicted price so users see "if right, this stock moves to $X".
+
+---
+
+## 🚧 KNOWN LIMITATIONS / PENDING
+
+### Data quality
+- 4 tickers (MRO, WBA, PARA, SQ) don't have enough clean history for 5-day target — dropped from training. Not a bug, just noted.
+- Model accuracy averages ~48–50%. Documented as an honest ceiling for 5-day direction from price/volume features alone. Real edge is the LLM synthesis + news + auto-portfolio construction on top.
+
+### To evaluate the reward loop meaningfully
+- Predictions made today are scored ~7 calendar days later (5 trading days + weekend padding). **Meaningful accuracy numbers only surface after ~2 weeks of daily-close runs.** GitHub Actions cron is doing this automatically.
+
+### Deferred / optional
+- Langfuse LLM observability (cost + latency tracking per Gemini call)
+- Tests + CI (pytest for services, GitHub Actions lint + test on push)
+- Weekly retraining cron (currently retrain is manual via `scripts/retrain_all_tickers.py`)
+- Evidently drift monitoring
+- pgvector for news-headline embeddings + RAG on longer-form articles
+- Streaming SSE dashboard updates (currently polls every 30s)
 
 ---
 

@@ -18,9 +18,11 @@ from app.agents.news import news_node
 from app.agents.risk import risk_node
 from app.agents.technical import technical_node
 from app.ml.predict import ModelNotTrainedError, predict_next_day
+from app.models.portfolio import Portfolio
 from app.models.stock import StockOHLCV
 from app.services.features import compute_all_features
 from app.services.news import fetch_headlines
+from app.services.portfolio_service import DEFAULT_PORTFOLIO_NAME, build_summary
 
 FEATURE_KEYS = [
     "sma_20", "sma_50", "ema_12", "ema_26", "rsi_14",
@@ -93,6 +95,16 @@ def make_fetch_node(db: Session):
 
         headlines = fetch_headlines(ticker, limit=10)
 
+        # Fetch current portfolio capital so risk sizing scales with the user's
+        # configured budget instead of a hardcoded constant.
+        portfolio = (
+            db.query(Portfolio).filter(Portfolio.name == DEFAULT_PORTFOLIO_NAME).first()
+        )
+        if portfolio is None:
+            portfolio_capital = None
+        else:
+            portfolio_capital = float(build_summary(db, portfolio)["total_value"])
+
         result: AgentState = {
             "as_of_date": as_of_str,
             "close": float(latest["close"]),
@@ -100,6 +112,8 @@ def make_fetch_node(db: Session):
             "prediction": prediction,
             "news_headlines": headlines,
         }
+        if portfolio_capital is not None:
+            result["portfolio_capital"] = portfolio_capital
         if pred_error:
             result["errors"] = [pred_error]
         return result

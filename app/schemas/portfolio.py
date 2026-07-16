@@ -16,6 +16,13 @@ class TradeRequest(BaseModel):
     take_profit: float | None = None
 
 
+class ResetRequest(BaseModel):
+    initial_capital: float | None = Field(
+        None, ge=100, le=100_000,
+        description="Optional new starting capital between $100 and $100k. If omitted, keeps existing initial_capital.",
+    )
+
+
 class TradeOut(BaseModel):
     id: int
     ticker: str

@@ -14,7 +14,7 @@ short_description: Multi-agent AI equity research with XGBoost + LangGraph (Gemi
 
 Multi-agent AI platform for equity research, combining an **XGBoost ML brain** with a **LangGraph LLM brain** (Technical + News + Risk agents) that collaborate on stock analysis.
 
-Live demo: `https://huggingface.co/spaces/<your-username>/equity-agent` (once deployed) · Docs: `/docs` on the Space.
+**Live demo:** https://equity-agent-2lpa.onrender.com · **API docs:** https://equity-agent-2lpa.onrender.com/docs
 
 ---
 
@@ -294,6 +294,9 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 | POST | `/portfolio/snapshot` | Capture today's portfolio state (idempotent per day) |
 | GET | `/portfolio/history?days=N` | Equity-curve data + period return |
 | POST | `/portfolio/enforce-stops` | Close positions that crossed stop_loss or take_profit |
+| POST | `/portfolio/auto-build?budget=X&max_positions=5` | Reset + auto-buy top N high-confidence UP picks |
+| GET | `/portfolio/accuracy` | Model track record: overall %, reward points, per-ticker breakdown |
+| GET | `/scan?budget=X` | Rank affordable stocks by expected 5-day gain (137-ticker universe) |
 
 ## Roadmap
 
@@ -308,6 +311,10 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 - [x] Stop-loss / take-profit auto-enforcement (autonomous position closure)
 - [x] Daily automation via GitHub Actions cron (ingest + enforce + snapshot, no server required)
 - [x] Deployment via Docker + Render.com (Dockerfile ready, `${PORT}` respected, `--proxy-headers` set)
+- [x] Configurable capital ($100–$100k, auto-scaling risk sizing for demo budgets)
+- [x] 137-ticker universe with affordability-filtered scan endpoint
+- [x] Prediction tracking + reward points (10 per correct hit + high-confidence bonuses)
+- [x] Auto-build portfolio (one click → confidence-weighted allocation across top picks)
 - [ ] Langfuse LLM observability
 - [ ] Retraining + drift monitoring (Evidently)
 - [ ] pgvector for news RAG

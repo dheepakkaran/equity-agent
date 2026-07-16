@@ -12,6 +12,12 @@ class RiskAssessment(BaseModel):
     risk_reward_ratio: float
     suggested_shares: int
     notional_usd: float
+    max_potential_gain_usd: float = 0.0
+    max_potential_loss_usd: float = 0.0
+    expected_return_pct: float = 0.0
+    max_loss_pct: float = 0.0
+    unaffordable_capped: bool = False
+    skip_reason: str = ""
     notes: str
 
 

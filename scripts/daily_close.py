@@ -33,11 +33,13 @@ from app.services.portfolio_service import (  # noqa: E402
     get_or_create_portfolio,
     take_snapshot,
 )
+from app.services.prediction_tracking import (  # noqa: E402
+    evaluate_pending_predictions,
+    record_prediction,
+)
+from app.tickers import TOP_TICKERS  # noqa: E402
 
-TICKERS = [
-    "SPY", "QQQ", "AAPL", "MSFT", "NVDA",
-    "GOOGL", "META", "TSLA", "AMZN", "AMD",
-]
+TICKERS = TOP_TICKERS
 
 
 def main() -> None:
@@ -59,8 +61,22 @@ def main() -> None:
             except Exception as exc:  # noqa: BLE001
                 print(f"  {ticker}: FAIL {exc}")
 
-        # 2. Enforce stops
-        print("\nStep 2: Enforcing stop-loss / take-profit")
+        # 2. Evaluate old predictions (5+ days ago) against actual closes
+        print("\nStep 2a: Evaluating pending predictions")
+        evaluated = evaluate_pending_predictions(db)
+        print(f"  {evaluated} prediction(s) evaluated")
+
+        # 2b. Record today's predictions for all tickers
+        print("\nStep 2b: Recording today's predictions")
+        recorded = 0
+        for ticker in TICKERS:
+            row = record_prediction(db, ticker)
+            if row is not None:
+                recorded += 1
+        print(f"  {recorded}/{len(TICKERS)} predictions stored")
+
+        # 3. Enforce stops
+        print("\nStep 3: Enforcing stop-loss / take-profit")
         portfolio = get_or_create_portfolio(db)
         actions = enforce_stops(db, portfolio)
         if not actions:
@@ -76,8 +92,8 @@ def main() -> None:
                         f"(realized P&L ${a['realized_pnl']:.2f})"
                     )
 
-        # 3. Snapshot
-        print("\nStep 3: Taking end-of-day snapshot")
+        # 4. Snapshot
+        print("\nStep 4: Taking end-of-day snapshot")
         db.refresh(portfolio)
         snap = take_snapshot(db, portfolio)
         summary = build_summary(db, portfolio)

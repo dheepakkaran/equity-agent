@@ -19,7 +19,11 @@ from app.models.portfolio import Portfolio, PortfolioSnapshot, Position, Trade
 from app.models.stock import StockOHLCV
 
 DEFAULT_PORTFOLIO_NAME = "main"
-DEFAULT_INITIAL_CAPITAL = 1_000_000.0
+DEFAULT_INITIAL_CAPITAL = 10_000.0
+
+# Guardrails on user-configurable capital
+MIN_INITIAL_CAPITAL = 100.0
+MAX_INITIAL_CAPITAL = 100_000.0
 
 
 class PortfolioError(Exception):
@@ -41,17 +45,42 @@ def get_or_create_portfolio(db: Session, name: str = DEFAULT_PORTFOLIO_NAME) -> 
     return p
 
 
-def reset_portfolio(db: Session, name: str = DEFAULT_PORTFOLIO_NAME) -> Portfolio:
-    """Wipe positions/trades and reset cash to initial capital."""
+def reset_portfolio(
+    db: Session,
+    name: str = DEFAULT_PORTFOLIO_NAME,
+    initial_capital: float | None = None,
+) -> Portfolio:
+    """Wipe positions/trades/snapshots and reset cash.
+
+    If `initial_capital` is provided, the portfolio is re-initialized at that
+    amount (clamped to [MIN, MAX]). Otherwise the existing initial_capital is
+    kept.
+    """
+    if initial_capital is not None:
+        initial_capital = max(
+            MIN_INITIAL_CAPITAL, min(MAX_INITIAL_CAPITAL, float(initial_capital))
+        )
+
     p = db.query(Portfolio).filter(Portfolio.name == name).first()
     if p:
+        from app.models.portfolio import PortfolioSnapshot
         db.query(Trade).filter(Trade.portfolio_id == p.id).delete()
         db.query(Position).filter(Position.portfolio_id == p.id).delete()
+        db.query(PortfolioSnapshot).filter(PortfolioSnapshot.portfolio_id == p.id).delete()
+        if initial_capital is not None:
+            p.initial_capital = initial_capital
         p.cash_balance = p.initial_capital
         db.commit()
         db.refresh(p)
         return p
-    return get_or_create_portfolio(db, name)
+
+    # Portfolio didn't exist — create with requested or default capital
+    capital = initial_capital if initial_capital is not None else DEFAULT_INITIAL_CAPITAL
+    p = Portfolio(name=name, initial_capital=capital, cash_balance=capital)
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p
 
 
 def _latest_close(db: Session, ticker: str) -> float | None:
