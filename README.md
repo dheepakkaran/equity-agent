@@ -12,9 +12,26 @@ short_description: Multi-agent AI equity research with XGBoost + LangGraph (Gemi
 
 # equity-agent
 
-Multi-agent AI platform for equity research, combining an **XGBoost ML brain** with a **LangGraph LLM brain** (Technical + News + Risk agents) that collaborate on stock analysis.
+### One click. AI picks your stocks. Watch profit daily.
 
-**Live demo:** https://equity-agent-2lpa.onrender.com · **API docs:** https://equity-agent-2lpa.onrender.com/docs
+An autonomous, end-to-end paper-trading system that scans ~130 US stocks, runs an XGBoost prediction on each, layers on LLM-driven technical and news analysis, and buys the highest-conviction picks that fit your budget — all without you touching a single terminal.
+
+> 🎯 **Live demo →** [equity-agent-2lpa.onrender.com](https://equity-agent-2lpa.onrender.com)
+> 📚 **API docs →** [equity-agent-2lpa.onrender.com/docs](https://equity-agent-2lpa.onrender.com/docs)
+> 🔒 **Passcode-protected** — personal single-user hosting
+
+---
+
+### What it does
+
+- **🚀 One-click portfolio construction** — enter your budget ($100–$100k), the AI runs XGBoost across ~130 tickers, picks the top 5 high-confidence UP signals, sizes each position by confidence, and executes buys with automatic stop-loss and take-profit.
+- **🧠 Multi-agent LLM analysis on demand** — Technical Agent + News Agent + Risk Agent + Head-of-Desk synthesis, orchestrated by LangGraph.
+- **📈 Predicted price for tomorrow** — every open position shows `Today`, `AI expects tomorrow`, `Predicted gain tomorrow`, and current P&L in plain language.
+- **🎮 Reward system** — the AI earns points when its past predictions actually pan out (10 per correct + 5 bonus for high-confidence hits), so you can watch it get sharper over time.
+- **🔄 Daily rebalance** — one button (or the nightly cron) closes losers, redeploys cash into fresh top picks.
+- **⚙️ Fully autonomous** — GitHub Actions cron ingests fresh market data, evaluates yesterday's predictions, records today's, enforces stops, and snapshots the portfolio every weekday after market close.
+
+---
 
 ---
 
@@ -295,8 +312,11 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 | GET | `/portfolio/history?days=N` | Equity-curve data + period return |
 | POST | `/portfolio/enforce-stops` | Close positions that crossed stop_loss or take_profit |
 | POST | `/portfolio/auto-build?budget=X&max_positions=5` | Reset + auto-buy top N high-confidence UP picks |
+| POST | `/portfolio/rebalance?max_new_positions=3` | Close crossed-stop positions + buy fresh top picks |
 | GET | `/portfolio/accuracy` | Model track record: overall %, reward points, per-ticker breakdown |
 | GET | `/scan?budget=X` | Rank affordable stocks by expected 5-day gain (137-ticker universe) |
+| POST | `/auth/login` | Passcode → HMAC-signed session cookie |
+| POST | `/auth/logout` | Clear session cookie |
 
 ## Roadmap
 
@@ -315,6 +335,10 @@ Open `http://localhost:8000/docs` for interactive API documentation.
 - [x] 137-ticker universe with affordability-filtered scan endpoint
 - [x] Prediction tracking + reward points (10 per correct hit + high-confidence bonuses)
 - [x] Auto-build portfolio (one click → confidence-weighted allocation across top picks)
+- [x] Daily rebalance endpoint + button (close losers, buy fresh top picks)
+- [x] Position enrichment (predicted-price-tomorrow, expected-gain-tomorrow, rewards-earned per position)
+- [x] Beginner-friendly dashboard rewrite (plain-English labels, no jargon)
+- [x] Passcode auth (single-user, HMAC-signed cookie, `/login` page, 30-day session)
 - [ ] Langfuse LLM observability
 - [ ] Retraining + drift monitoring (Evidently)
 - [ ] pgvector for news RAG

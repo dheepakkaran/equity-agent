@@ -247,6 +247,38 @@ Fixes the DOWN-bias exposed by the 10-ticker bootstrap.
 - **Watchlist Buy button switched from `/portfolio/execute` (slow, 3 LLM calls, ~15s) to `/portfolio/trade` (fast, ~200ms).** Also passes derived stop-loss / take-profit so daily-close automation can exit positions.
 - Set/Reset auto-runs a scan afterward — watchlist immediately reflects the new budget.
 
+### Phase 18 — Position Enrichment + Daily Rebalance + Dashboard Rewrite (2026-07-16)
+- `build_summary` now enriches every position with:
+  - `predicted_price_tomorrow` — 1-day model projection (`current × (1 + one_day_move_pct/100)` where `one_day_move ≈ conf_edge × 3% / √5`)
+  - `expected_gain_tomorrow_usd` — signed dollar move for the position if the prediction hits
+  - `rewards_earned` — cumulative 10-per-correct + 5-bonus-on-high-confidence points from `prediction_outcomes` since the position was opened
+- New endpoint `POST /portfolio/rebalance?max_new_positions=3&min_confidence=0.60` — daily rotation:
+  1. Runs `enforce_stops` on all open positions
+  2. Uses remaining cash to buy fresh top-confidence UP picks (skipping tickers already held)
+  3. Confidence-weighted allocation with 3% stop-loss / 5% take-profit
+- Dashboard rewritten for **beginner clarity + minimalist look**:
+  - Plain-English labels: "Portfolio worth", "Cash available", "Bought at", "Today", "AI expects tomorrow", "Predicted gain tomorrow", "Profit / loss", "Reward points"
+  - Removed jargon columns (Signal, Confidence, Trust, Direction, STRONG_BUY badges)
+  - Removed Watchlist section — the primary flow is the big green "🚀 Let AI invest" CTA
+  - Hero card: capital input + one-click Invest / Rebalance / Reset buttons
+  - Layout: Header → Hero → Portfolio metrics → Stocks you own → AI prediction score → What happened recently
+
+### Phase 19 — Passcode Auth (2026-07-16)
+- `app/auth.py`:
+  - `APP_PASSCODE` env var protects the whole app; unset = disabled (dev mode).
+  - Session cookie = HMAC-SHA256(passcode, secret). Cannot be forged without both. Changing either automatically invalidates all live sessions.
+  - `APP_SECRET` optional for extra key material; falls back to a passcode-derived value.
+  - Cookie: `httpOnly`, `secure`, `samesite=lax`, 30-day max-age.
+- `app/api/auth.py`: `POST /auth/login` (JSON `{passcode}` → sets cookie) + `POST /auth/logout` (clears cookie).
+- `app/static/login.html`: minimalist passcode-only login page — no username field, dark theme matching the dashboard.
+- `PasscodeAuthMiddleware` in `app/main.py` intercepts every request:
+  - Public path prefixes: `/auth/`, `/health`, `/login`, `/openapi.json`, `/docs`, `/redoc`, `/favicon.ico`.
+  - Unauthenticated HTML requests → 302 redirect to `/login`.
+  - Unauthenticated API requests → 401 JSON.
+- `.env` loaded via `dotenv.load_dotenv()` at startup so `os.getenv("APP_PASSCODE")` sees local dev values (Render injects env vars directly, no `.env` needed there).
+- Dashboard footer gains a "Sign out" link that POSTs to `/auth/logout` and redirects to `/login`.
+- **Zero DB changes** — passcode never persisted anywhere except Render's encrypted secret store.
+
 ### Phase 17 — Auto-Build Portfolio (2026-07-16)
 - `POST /portfolio/auto-build?budget=X&max_positions=5&min_confidence=0.55` — one-click portfolio construction:
   1. Reset portfolio to `budget`.
